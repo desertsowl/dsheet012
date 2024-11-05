@@ -10,7 +10,7 @@ const app = express();
 const PORT = 5000;
 
 // MongoDBに接続
-mongoose.connect('mongodb://localhost/staff')
+mongoose.connect('mongodb://localhost/staff', { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.log('MongoDB connection error:', err));
 
@@ -42,12 +42,55 @@ app.get('/admin', (req, res) => {
     res.render('admin', { title: '管理者ページ' });
 });
 
-app.get('/manager', (req, res) => {
-    res.render('manager', { title: '監督者ページ' });
-});
+// データベースとコレクションのマッピング
+const dbCollectionMapping = {
+    job: 'default',
+    device: 'default',
+    kitting: 'default',
+    staff: 'everyone',
+    systemlog: 'default'
+};
 
-app.get('/worker', (req, res) => {
-    res.render('worker', { title: '作業者ページ' });
+// 新規作成リンク
+app.get('/admin/:db/new', async (req, res) => {
+    const { db } = req.params;
+    const collectionName = dbCollectionMapping[db];
+
+    if (!collectionName) {
+        return res.render('result', {
+            title: 'エラー',
+            message: 'エラー: 許可されていないデータベースです',
+            backLink: '/admin'
+        });
+    }
+
+    try {
+        const database = mongoose.connection.useDb(db, { useCache: true });
+        const existingCollections = await database.db.listCollections().toArray();
+        const collectionNames = existingCollections.map(col => col.name);
+
+        if (!collectionNames.includes(collectionName)) {
+            await database.createCollection(collectionName);
+            return res.render('result', {
+                title: '成功',
+                message: `データベース "${db}" にコレクション "${collectionName}" を構築しました`,
+                backLink: '/admin'
+            });
+        } else {
+            return res.render('result', {
+                title: '情報',
+                message: `データベース "${db}" にコレクション "${collectionName}" はすでに存在します`,
+                backLink: '/admin'
+            });
+        }
+    } catch (err) {
+        console.error('Detailed error:', err);
+        return res.render('result', {
+            title: 'エラー',
+            message: `エラー: データベースの構築に失敗しました。詳細: ${err.message}`,
+            backLink: '/admin'
+        });
+    }
 });
 
 // POST /login のルート
@@ -56,7 +99,7 @@ app.post('/login', async (req, res) => {
     console.log('Received username:', username); // デバッグ用ログ
 
     try {
-        const user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
+        const user = await User.findOne({ username: username.toLowerCase() });
         if (!user) {
             console.log('User not found'); // デバッグ用ログ
             return res.status(400).send('ユーザーが見つかりません');
@@ -82,61 +125,9 @@ app.post('/login', async (req, res) => {
         }
 
     } catch (err) {
-        console.error(err);
+        console.error('Detailed error:', err);
         res.status(500).send('サーバーエラー');
     }
-});
-
-// 管理者ページの新規作成リンクのルート
-const allowedDatabases = ['job', 'device', 'kitting', 'staff', 'systemlog'];
-
-app.get('/admin/:db/new', async (req, res) => {
-    const dbName = req.params.db;
-
-    if (!allowedDatabases.includes(dbName)) {
-        return res.render('result', {
-            title: 'エラー',
-            message: 'エラー: 許可されていないデータベース名です',
-            backLink: '/admin'
-        });
-    }
-
-    try {
-        const dbAdmin = mongoose.connection.db.admin();
-        const existingDatabases = await dbAdmin.listDatabases();
-        const databaseNames = existingDatabases.databases.map(db => db.name);
-
-        if (databaseNames.includes(dbName)) {
-            return res.render('result', {
-                title: 'エラー',
-                message: 'すでに同名のデータベースが存在するため、構築できませんでした',
-                backLink: '/admin'
-            });
-        }
-
-        await mongoose.connection.db.createCollection(dbName);
-        res.render('result', {
-            title: '成功',
-            message: `データベース "${dbName}" の構築に成功しました`,
-            backLink: '/admin'
-        });
-    } catch (err) {
-        console.error(err);
-        res.render('result', {
-            title: 'エラー',
-            message: 'エラー: データベースの作成に失敗しました',
-            backLink: '/admin'
-        });
-    }
-});
-
-// 監督者ページの新規作成リンクのルート
-app.get('/manager/job/new', (req, res) => {
-    res.render('result', {
-        title: '案件カード新規作成',
-        message: '案件カード新規作成ページです。',
-        backLink: '/manager'
-    });
 });
 
 // サーバー起動
