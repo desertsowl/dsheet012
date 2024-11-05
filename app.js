@@ -87,8 +87,59 @@ app.post('/login', async (req, res) => {
     }
 });
 
+// 管理者ページの新規作成リンクのルート
+const allowedDatabases = ['job', 'device', 'kitting', 'staff', 'systemlog'];
+
+app.get('/admin/:db/new', async (req, res) => {
+    const dbName = req.params.db;
+
+    if (!allowedDatabases.includes(dbName)) {
+        return res.render('result', {
+            title: 'エラー',
+            message: 'エラー: 許可されていないデータベース名です',
+            backLink: '/admin'
+        });
+    }
+
+    try {
+        const dbAdmin = mongoose.connection.db.admin();
+        const existingDatabases = await dbAdmin.listDatabases();
+        const databaseNames = existingDatabases.databases.map(db => db.name);
+
+        if (databaseNames.includes(dbName)) {
+            return res.render('result', {
+                title: 'エラー',
+                message: 'すでに同名のデータベースが存在するため、構築できませんでした',
+                backLink: '/admin'
+            });
+        }
+
+        await mongoose.connection.db.createCollection(dbName);
+        res.render('result', {
+            title: '成功',
+            message: `データベース "${dbName}" の構築に成功しました`,
+            backLink: '/admin'
+        });
+    } catch (err) {
+        console.error(err);
+        res.render('result', {
+            title: 'エラー',
+            message: 'エラー: データベースの作成に失敗しました',
+            backLink: '/admin'
+        });
+    }
+});
+
+// 監督者ページの新規作成リンクのルート
+app.get('/manager/job/new', (req, res) => {
+    res.render('result', {
+        title: '案件カード新規作成',
+        message: '案件カード新規作成ページです。',
+        backLink: '/manager'
+    });
+});
+
 // サーバー起動
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
-
