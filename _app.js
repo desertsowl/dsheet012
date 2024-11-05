@@ -10,7 +10,7 @@ const app = express();
 const PORT = 5000;
 
 // MongoDBに接続
-mongoose.connect('mongodb://localhost/staff', { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect('mongodb://localhost/admin', { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.log('MongoDB connection error:', err));
 
@@ -67,9 +67,8 @@ app.get('/admin/:db/new', async (req, res) => {
     try {
         const database = mongoose.connection.useDb(db, { useCache: true });
         const existingCollections = await database.db.listCollections().toArray();
-        const collectionNames = existingCollections.map(col => col.name);
 
-        if (!collectionNames.includes(collectionName)) {
+        if (!existingCollections.find(col => col.name === collectionName)) {
             await database.createCollection(collectionName);
             return res.render('result', {
                 title: '成功',
@@ -106,18 +105,6 @@ app.get('/admin/:db/delete', async (req, res) => {
     }
 
     try {
-        const adminDb = mongoose.connection.db.admin();
-        const existingDatabases = await adminDb.listDatabases();
-        const dbNames = existingDatabases.databases.map(database => database.name);
-
-        if (!dbNames.includes(db)) {
-            return res.render('result', {
-                title: 'エラー',
-                message: 'エラー: データベースが見つかりません',
-                backLink: '/admin'
-            });
-        }
-
         const database = mongoose.connection.useDb(db, { useCache: true });
         const existingCollections = await database.db.listCollections().toArray();
 
@@ -129,7 +116,8 @@ app.get('/admin/:db/delete', async (req, res) => {
             });
         }
 
-        await mongoose.connection.dropDatabase(db);
+        // 空のデータベースを削除
+        await database.db.dropDatabase();
         return res.render('result', {
             title: '成功',
             message: `データベース "${db}" の削除に成功しました`,
