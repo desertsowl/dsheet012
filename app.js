@@ -4,13 +4,12 @@ const session = require('express-session');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const expressLayouts = require('express-ejs-layouts');
-const User = require('./models/User');
 
 const app = express();
 const PORT = 5000;
 
 // MongoDBに接続
-mongoose.connect('mongodb://localhost/staff', { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect('mongodb://localhost/admin', { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.log('MongoDB connection error:', err));
 
@@ -25,135 +24,119 @@ app.use(session({
 
 // express-ejs-layouts の設定
 app.use(expressLayouts);
-app.set('layout', 'layouts/base'); // レイアウトを指定
+app.set('layout', 'layouts/base');
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ルート設定
+// スタッフデータベースからUserモデルの作成
+const staffDb = mongoose.connection.useDb('staff');
+const UserSchema = new mongoose.Schema({
+    username: String,
+    password: String,
+    group: Number,
+    status: Number,
+    email: String,
+    created_at: Date,
+    updated_at: Date,
+    unique: Number
+});
+const User = staffDb.model('User', UserSchema, 'everyone');
+
+// コレクションの設定
+const collectionMapping = {
+    job: { db: 'job', collection: 'default' },
+    device: { db: 'device', collection: 'default' },
+    kitting: { db: 'kitting', collection: 'default' },
+    staff: { db: 'staff', collection: 'everyone' },
+    systemlog: { db: 'systemlog', collection: 'default' }
+};
+
+// ヘルパー関数
+const getCollectionConfig = (db) => collectionMapping[db];
+const renderMessage = (res, title, message, backLink = '/admin') => {
+    res.render('result', { title, message, backLink });
+};
+
+// コレクションが存在するかチェックする関数（タイムアウト設定を追加）
+const collectionExists = async (database, collectionName) => {
+    try {
+        const collections = await database.db.listCollections({ name: collectionName }).toArray();
+        return collections.length > 0;
+    } catch (err) {
+        console.error('Error checking collection existence:', err);
+        return false;
+    }
+};
+
+// ホームページをログインページにリダイレクト
 app.get('/', (req, res) => {
+    res.redirect('/login');
+});
+
+// 新規作成ルート
+app.get('/admin/:db/new', async (req, res) => {
+    const { db } = req.params;
+    const config = getCollectionConfig(db);
+
+    if (!config) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです');
+    }
+
+    try {
+        const database = mongoose.connection.useDb(config.db);
+        const collectionFound = await collectionExists(database, config.collection);
+
+        if (collectionFound) {
+            return renderMessage(res, '情報', `コレクション "${config.collection}" は既に存在します`);
+        }
+
+        // コレクションが存在しない場合、新規作成を実行
+        await database.createCollection(config.collection);
+        renderMessage(res, '成功', `コレクション "${config.collection}" を新規作成しました`);
+    } catch (err) {
+        console.error('Detailed error during collection creation:', err);
+        renderMessage(res, 'エラー', `エラー: コレクションの構築に失敗しました。詳細: ${err.message}`);
+    }
+});
+
+// 削除ルート
+app.get('/admin/:db/delete', async (req, res) => {
+    const { db } = req.params;
+    const config = getCollectionConfig(db);
+
+    if (!config) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです');
+    }
+
+    try {
+        const database = mongoose.connection.useDb(config.db);
+        const collectionFound = await collectionExists(database, config.collection);
+
+        if (!collectionFound) {
+            return renderMessage(res, '情報', `コレクション "${config.collection}" は存在しません`);
+        }
+
+        await database.dropCollection(config.collection);
+        renderMessage(res, '成功', `コレクション "${config.collection}" の削除に成功しました`);
+    } catch (err) {
+        console.error('Detailed error during collection deletion:', err);
+        renderMessage(res, 'エラー', `エラー: コレクションの削除に失敗しました。詳細: ${err.message}`);
+    }
+});
+
+// ログインルート
+app.get('/login', (req, res) => {
     res.render('login', { title: 'ログイン' });
 });
 
-app.get('/dashboard', (req, res) => {
-    res.render('dashboard', { title: 'ダッシュボード' });
-});
-
-app.get('/admin', (req, res) => {
-    res.render('admin', { title: '管理者ページ' });
-});
-
-// データベースとコレクションのマッピング
-const dbCollectionMapping = {
-    job: 'default',
-    device: 'default',
-    kitting: 'default',
-    staff: 'everyone',
-    systemlog: 'default'
-};
-
-// 新規作成リンク
-app.get('/admin/:db/new', async (req, res) => {
-    const { db } = req.params;
-    const collectionName = dbCollectionMapping[db];
-
-    if (!collectionName) {
-        return res.render('result', {
-            title: 'エラー',
-            message: 'エラー: 許可されていないデータベースです',
-            backLink: '/admin'
-        });
-    }
-
-    try {
-        const database = mongoose.connection.useDb(db, { useCache: true });
-        const existingCollections = await database.db.listCollections().toArray();
-        const collectionNames = existingCollections.map(col => col.name);
-
-        if (!collectionNames.includes(collectionName)) {
-            await database.createCollection(collectionName);
-            return res.render('result', {
-                title: '成功',
-                message: `データベース "${db}" にコレクション "${collectionName}" を構築しました`,
-                backLink: '/admin'
-            });
-        } else {
-            return res.render('result', {
-                title: '情報',
-                message: `データベース "${db}" にコレクション "${collectionName}" はすでに存在します`,
-                backLink: '/admin'
-            });
-        }
-    } catch (err) {
-        console.error('Detailed error:', err);
-        return res.render('result', {
-            title: 'エラー',
-            message: `エラー: データベースの構築に失敗しました。詳細: ${err.message}`,
-            backLink: '/admin'
-        });
-    }
-});
-
-// 削除リンク
-app.get('/admin/:db/delete', async (req, res) => {
-    const { db } = req.params;
-
-    if (!dbCollectionMapping.hasOwnProperty(db)) {
-        return res.render('result', {
-            title: 'エラー',
-            message: 'エラー: 許可されていないデータベースです',
-            backLink: '/admin'
-        });
-    }
-
-    try {
-        const adminDb = mongoose.connection.db.admin();
-        const existingDatabases = await adminDb.listDatabases();
-        const dbNames = existingDatabases.databases.map(database => database.name);
-
-        if (!dbNames.includes(db)) {
-            return res.render('result', {
-                title: 'エラー',
-                message: 'エラー: データベースが見つかりません',
-                backLink: '/admin'
-            });
-        }
-
-        const database = mongoose.connection.useDb(db, { useCache: true });
-        const existingCollections = await database.db.listCollections().toArray();
-
-        if (existingCollections.length > 0) {
-            return res.render('result', {
-                title: 'エラー',
-                message: `エラー: データベース "${db}" にはコレクションが存在するため削除できません`,
-                backLink: '/admin'
-            });
-        }
-
-        await mongoose.connection.dropDatabase(db);
-        return res.render('result', {
-            title: '成功',
-            message: `データベース "${db}" の削除に成功しました`,
-            backLink: '/admin'
-        });
-    } catch (err) {
-        console.error('Detailed error:', err);
-        return res.render('result', {
-            title: 'エラー',
-            message: `エラー: データベースの削除に失敗しました。詳細: ${err.message}`,
-            backLink: '/admin'
-        });
-    }
-});
-
-// POST /login のルート
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    console.log('Received username:', username); // デバッグ用ログ
+    console.log('Received username:', username);
 
     try {
         const user = await User.findOne({ username: username.toLowerCase() });
         if (!user) {
-            console.log('User not found'); // デバッグ用ログ
+            console.log('User not found');
             return res.status(400).send('ユーザーが見つかりません');
         }
 
@@ -177,9 +160,34 @@ app.post('/login', async (req, res) => {
         }
 
     } catch (err) {
-        console.error('Detailed error:', err);
+        console.error('Detailed error during login:', err);
         res.status(500).send('サーバーエラー');
     }
+});
+
+// 管理者ページ
+app.get('/admin', (req, res) => {
+    res.render('admin', { title: '管理者ページ' });
+});
+
+// 監督者ページ
+app.get('/manager', (req, res) => {
+    res.render('manager', { title: '監督者ページ' });
+});
+
+// 作業者ページ
+app.get('/worker', (req, res) => {
+    res.render('worker', { title: '作業者ページ' });
+});
+
+// ログアウトルート
+app.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).send('ログアウトに失敗しました');
+        }
+        res.redirect('/login');
+    });
 });
 
 // サーバー起動
