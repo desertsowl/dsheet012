@@ -29,7 +29,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // スタッフデータベースからUserモデルの作成
-const staffDb = mongoose.connection.useDb('staff');
+const staffDb = mongoose.connection.useDb('staff', { useCache: true });
 const UserSchema = new mongoose.Schema({
     username: String,
     password: String,
@@ -59,13 +59,8 @@ const renderMessage = (res, title, message, backLink = '/admin') => {
 
 // コレクションが存在するかチェックする関数
 const collectionExists = async (database, collectionName) => {
-    try {
-        const collections = await database.db.listCollections({ name: collectionName }).toArray();
-        return collections.length > 0;
-    } catch (err) {
-        console.error('Error checking collection existence:', err);
-        return false;
-    }
+    const collections = await database.db.listCollections({ name: collectionName }).toArray();
+    return collections.length > 0;
 };
 
 // ホームページをログインページにリダイレクト
@@ -83,7 +78,7 @@ app.get('/admin/:db/new', async (req, res) => {
     }
 
     try {
-        const database = mongoose.connection.useDb(config.db);
+        const database = mongoose.connection.useDb(config.db, { useCache: true });
         const collectionFound = await collectionExists(database, config.collection);
 
         if (collectionFound) {
@@ -94,7 +89,7 @@ app.get('/admin/:db/new', async (req, res) => {
         await database.createCollection(config.collection);
         renderMessage(res, '成功', `コレクション "${config.collection}" を新規作成しました`);
     } catch (err) {
-        console.error('Detailed error during collection creation:', err);
+        console.error('Detailed error:', err);
         renderMessage(res, 'エラー', `エラー: コレクションの構築に失敗しました。詳細: ${err.message}`);
     }
 });
@@ -109,7 +104,7 @@ app.get('/admin/:db/delete', async (req, res) => {
     }
 
     try {
-        const database = mongoose.connection.useDb(config.db);
+        const database = mongoose.connection.useDb(config.db, { useCache: true });
         const collectionFound = await collectionExists(database, config.collection);
 
         if (!collectionFound) {
@@ -119,7 +114,7 @@ app.get('/admin/:db/delete', async (req, res) => {
         await database.dropCollection(config.collection);
         renderMessage(res, '成功', `コレクション "${config.collection}" の削除に成功しました`);
     } catch (err) {
-        console.error('Detailed error during collection deletion:', err);
+        console.error('Detailed error:', err);
         renderMessage(res, 'エラー', `エラー: コレクションの削除に失敗しました。詳細: ${err.message}`);
     }
 });
@@ -160,43 +155,8 @@ app.post('/login', async (req, res) => {
         }
 
     } catch (err) {
-        console.error('Detailed error during login:', err);
+        console.error('Detailed error:', err);
         res.status(500).send('サーバーエラー');
-    }
-});
-
-// システムステータスページ
-app.get('/admin/status/system', async (req, res) => {
-    try {
-        const dbStatus = mongoose.connection.readyState === 1 ? '接続中' : '未接続';
-        const databases = ['job', 'device', 'kitting', 'staff', 'systemlog'];
-        
-        // 各データベースのコレクション一覧を取得
-        const collectionInfo = {};
-        for (const dbName of databases) {
-            const db = mongoose.connection.useDb(dbName);
-            const collections = await db.db.listCollections().toArray();
-            collectionInfo[dbName] = collections.map(col => col.name);
-        }
-
-        const systemStatus = {
-            serverTime: new Date(),
-            dbStatus: dbStatus,
-            dbName: mongoose.connection.name,
-            collections: collectionInfo
-        };
-
-        res.render('status_system', {
-            title: 'システムステータス',
-            status: systemStatus
-        });
-    } catch (err) {
-        console.error('Error fetching system status:', err);
-        res.render('result', {
-            title: 'エラー',
-            message: `システムステータスの取得に失敗しました。詳細: ${err.message}`,
-            backLink: '/admin'
-        });
     }
 });
 
