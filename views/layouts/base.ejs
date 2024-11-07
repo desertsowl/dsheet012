@@ -1,13 +1,47 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-    <%- include('head') %> <!-- 正しいパスに修正 -->
-</head>
+<%- include('./head') %>
 <body>
-    <%- include('header') %> <!-- 正しいパスに修正 -->
-    <div class="container">
-        <%- body %> <!-- 各ビューの内容がここに挿入されます -->
-    </div>
-    <%- include('footer') %> <!-- 正しいパスに修正 -->
+    <!-- ヘッダー -->
+    <%- include('./header') %>
+    
+    <!-- ドロワーメニュー -->
+    <%- include('./menu') %>
+
+    <!-- メインコンテンツ -->
+    <main class="container my-4">
+        <%- body %>
+    </main>
+    
+    <!-- フッター -->
+    <%- include('./footer') %>
+    
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- ドロワーメニューの開閉制御スクリプト -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const drawerButton = document.getElementById("drawerButton");
+            const drawerMenu = document.getElementById("drawerMenu");
+
+            // ドロワーメニューを開く/閉じる
+            drawerButton.addEventListener("click", function () {
+                if (drawerMenu.style.display === "block") {
+                    drawerMenu.style.display = "none";
+                } else {
+                    drawerMenu.style.display = "block";
+                }
+            });
+
+            // メニュー外クリックで閉じる
+            document.addEventListener("click", function (event) {
+                if (!drawerMenu.contains(event.target) && !drawerButton.contains(event.target)) {
+                    drawerMenu.style.display = "none";
+                }
+            });
+        });
+    </script>
 </body>
 </html>
+

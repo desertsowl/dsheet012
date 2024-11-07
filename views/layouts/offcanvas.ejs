@@ -1,0 +1,37 @@
+<div class="offcanvas offcanvas-top offcanvas-menu" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel" data-bs-backdrop="false" data-bs-scroll="false">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasMenuLabel">メニュー</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <nav>
+            <ul class="list-unstyled">
+                <% if (userRole === 'admin') { %>
+                    <li><a href="/admin" class="nav-link">ホーム</a></li>
+                    <li><a href="/manager" class="nav-link">監督者ページ</a></li>
+                    <li><a href="/worker" class="nav-link">作業者ページ</a></li>
+                    <li><a href="/logout" class="nav-link">ログアウト</a></li>
+                <% } else if (userRole === 'manager') { %>
+                    <li><a href="/manager" class="nav-link">ホーム</a></li>
+                    <li><a href="/worker" class="nav-link">作業者ページ</a></li>
+                    <li><a href="/logout" class="nav-link">ログアウト</a></li>
+                    <li><a href="/help" class="nav-link">使い方</a></li>
+                    <li><a href="/faq" class="nav-link">FAQ</a></li>
+                    <li><a href="/contact" class="nav-link">お問い合わせ</a></li>
+                <% } else if (userRole === 'worker') { %>
+                    <li><a href="/worker" class="nav-link">ホーム</a></li>
+                    <li><a href="/logout" class="nav-link">ログアウト</a></li>
+                    <li><a href="/help" class="nav-link">使い方</a></li>
+                    <li><a href="/faq" class="nav-link">FAQ</a></li>
+                    <li><a href="/contact" class="nav-link">お問い合わせ</a></li>
+                <% } else { %>
+                    <!-- ログイン画面のメニュー項目 -->
+                    <li><a href="/help" class="nav-link">使い方</a></li>
+                    <li><a href="/faq" class="nav-link">FAQ</a></li>
+                    <li><a href="/contact" class="nav-link">お問い合わせ</a></li>
+                <% } %>
+            </ul>
+        </nav>
+    </div>
+</div>
+

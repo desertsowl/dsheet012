@@ -57,16 +57,17 @@ const renderMessage = (res, title, message, backLink = '/admin') => {
     res.render('result', { title, message, backLink });
 };
 
-// コレクションが存在するかチェックする関数
-const collectionExists = async (database, collectionName) => {
-    try {
-        const collections = await database.db.listCollections({ name: collectionName }).toArray();
-        return collections.length > 0;
-    } catch (err) {
-        console.error('Error checking collection existence:', err);
-        return false;
+// ミドルウェア: ユーザーの役割を設定
+app.use((req, res, next) => {
+    if (req.session.userId) {
+        // ユーザーの役割をセッションやデータベースから取得し、userRoleに設定
+        // ここでは例として、ユーザーの役割を `admin`, `manager`, `worker`とします
+        res.locals.userRole = req.session.userRole || 'guest';  // デフォルトは'guest'
+    } else {
+        res.locals.userRole = 'guest';
     }
-};
+    next();
+});
 
 // ホームページをログインページにリダイレクト
 app.get('/', (req, res) => {
@@ -147,6 +148,7 @@ app.post('/login', async (req, res) => {
 
         // ログイン成功
         req.session.userId = user._id;
+        req.session.userRole = user.group === 8 ? 'admin' : user.group === 4 ? 'manager' : user.group === 2 ? 'worker' : 'guest';
 
         // 資格に基づいてリダイレクト
         if (user.group === 8) {
@@ -166,7 +168,7 @@ app.post('/login', async (req, res) => {
 });
 
 // システムステータスページ
-app.get('/admin/status/system', async (req, res) => {
+app.get('/status/system', async (req, res) => {
     try {
         const dbStatus = mongoose.connection.readyState === 1 ? '接続中' : '未接続';
         const databases = ['job', 'device', 'kitting', 'staff', 'systemlog'];
