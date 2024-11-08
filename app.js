@@ -1,3 +1,4 @@
+// 必要なモジュールと設定
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
@@ -71,9 +72,7 @@ const collectionExists = async (database, collectionName) => {
 // ミドルウェア: ユーザーの役割を設定
 app.use((req, res, next) => {
     if (req.session.userId) {
-        // ユーザーの役割をセッションやデータベースから取得し、userRoleに設定
-        // ここでは例として、ユーザーの役割を `admin`, `manager`, `worker`とします
-        res.locals.userRole = req.session.userRole || 'guest';  // デフォルトは'guest'
+        res.locals.userRole = req.session.userRole || 'guest'; // デフォルトは'guest'
     } else {
         res.locals.userRole = 'guest';
     }
@@ -102,7 +101,6 @@ app.get('/admin/:db/new', async (req, res) => {
             return renderMessage(res, '情報', `コレクション "${config.collection}" は既に存在します`);
         }
 
-        // コレクションが存在しない場合、新規作成を実行
         await database.createCollection(config.collection);
         renderMessage(res, '成功', `コレクション "${config.collection}" を新規作成しました`);
     } catch (err) {
@@ -136,7 +134,27 @@ app.get('/admin/:db/delete', async (req, res) => {
     }
 });
 
-// ログインルート
+// 動的なコレクションリスト表示ルート
+app.get('/manager/:db/list', async (req, res) => {
+    const { db } = req.params;
+    const config = getCollectionConfig(db);
+
+    if (!config) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないデータベースです', '/manager');
+    }
+
+    try {
+        const database = mongoose.connection.useDb(config.db);
+        const collections = await database.db.listCollections().toArray();
+        const collectionNames = collections.map(col => col.name);
+
+        res.render('list', { title: `${db}データベースのコレクション一覧`, collectionNames });
+    } catch (err) {
+        console.error('Error fetching collections:', err);
+        renderMessage(res, 'エラー', `コレクション一覧の取得に失敗しました。詳細: ${err.message}`, '/manager');
+    }
+});
+
 app.get('/login', (req, res) => {
     res.render('login', { title: 'ログイン' });
 });
@@ -183,7 +201,7 @@ app.get('/status/system', async (req, res) => {
     try {
         const dbStatus = mongoose.connection.readyState === 1 ? '接続中' : '未接続';
         const databases = ['job', 'device', 'kitting', 'staff', 'systemlog'];
-        
+
         // 各データベースのコレクション一覧を取得
         const collectionInfo = {};
         for (const dbName of databases) {
@@ -238,7 +256,8 @@ app.get('/logout', (req, res) => {
     });
 });
 
+
 // サーバー起動
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
-});
+});	
