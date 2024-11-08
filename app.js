@@ -57,6 +57,17 @@ const renderMessage = (res, title, message, backLink = '/admin') => {
     res.render('result', { title, message, backLink });
 };
 
+// コレクションが存在するかチェックする関数
+const collectionExists = async (database, collectionName) => {
+    try {
+        const collections = await database.db.listCollections({ name: collectionName }).toArray();
+        return collections.length > 0;
+    } catch (err) {
+        console.error('Error checking collection existence:', err);
+        return false;
+    }
+};
+
 // ミドルウェア: ユーザーの役割を設定
 app.use((req, res, next) => {
     if (req.session.userId) {
