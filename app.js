@@ -134,7 +134,7 @@ app.get('/admin/:db/delete', async (req, res) => {
     }
 });
 
-// 動的なコレクションリスト表示ルート
+// コレクションリスト表示ルート
 app.get('/manager/:db/list', async (req, res) => {
     const { db } = req.params;
     const config = getCollectionConfig(db);
@@ -148,10 +148,35 @@ app.get('/manager/:db/list', async (req, res) => {
         const collections = await database.db.listCollections().toArray();
         const collectionNames = collections.map(col => col.name);
 
-        res.render('list', { title: `${db}データベースのコレクション一覧`, collectionNames });
+        res.render('list', { title: `${db}データベースのコレクション一覧`, collectionNames, db });
     } catch (err) {
         console.error('Error fetching collections:', err);
         renderMessage(res, 'エラー', `コレクション一覧の取得に失敗しました。詳細: ${err.message}`, '/manager');
+    }
+});
+
+// コレクション内のドキュメント表示ルート
+app.get('/manager/:db/view/:collection', async (req, res) => {
+    const { db, collection } = req.params;
+    const config = getCollectionConfig(db);
+
+    if (!config || config.collection !== collection) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです', `/manager/${db}/list`);
+    }
+
+    try {
+        const database = mongoose.connection.useDb(config.db);
+        const documents = await database.collection(collection).find().toArray();
+
+        res.render('view', {
+            title: `${collection}のドキュメント一覧`,
+            documents,
+            collectionName: collection,
+            db // 追加: db変数を渡す
+        });
+    } catch (err) {
+        console.error('Error fetching documents:', err);
+        renderMessage(res, 'エラー', `ドキュメント一覧の取得に失敗しました。詳細: ${err.message}`, `/manager/${db}/list`);
     }
 });
 
@@ -159,6 +184,7 @@ app.get('/login', (req, res) => {
     res.render('login', { title: 'ログイン' });
 });
 
+// ログイン処理
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     console.log('Received username:', username);
@@ -196,6 +222,21 @@ app.post('/login', async (req, res) => {
     }
 });
 
+// 管理者ページ
+app.get('/admin', (req, res) => {
+    res.render('admin', { title: '管理者ページ' });
+});
+
+// 監督者ページ
+app.get('/manager', (req, res) => {
+    res.render('manager', { title: '監督者ページ' });
+});
+
+// 作業者ページ
+app.get('/worker', (req, res) => {
+    res.render('worker', { title: '作業者ページ' });
+});
+
 // システムステータスページ
 app.get('/status/system', async (req, res) => {
     try {
@@ -231,22 +272,7 @@ app.get('/status/system', async (req, res) => {
     }
 });
 
-// 管理者ページ
-app.get('/admin', (req, res) => {
-    res.render('admin', { title: '管理者ページ' });
-});
-
-// 監督者ページ
-app.get('/manager', (req, res) => {
-    res.render('manager', { title: '監督者ページ' });
-});
-
-// 作業者ページ
-app.get('/worker', (req, res) => {
-    res.render('worker', { title: '作業者ページ' });
-});
-
-// ログアウトルート
+// ログアウト処理
 app.get('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
@@ -256,8 +282,8 @@ app.get('/logout', (req, res) => {
     });
 });
 
-
 // サーバー起動
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
-});	
+});
+

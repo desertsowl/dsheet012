@@ -9,21 +9,21 @@
 <body>
     <header class="container my-4">
         <h1><%= title %></h1>
-        <a href="/manager" class="btn btn-primary">戻る</a>
+        <a href="/manager/<%= db %>/list" class="btn btn-primary">戻る</a>
     </header>
 
     <main class="container">
-        <h2>コレクション一覧</h2>
-        <% if (collectionNames.length > 0) { %>
-            <ul class="list-group">
-                <% collectionNames.forEach(name => { %>
-                    <li class="list-group-item">
-                        <a href="/manager/<%= db %>/view/<%= name %>"><%= name %></a>
-                    </li>
+        <h2><%= collectionName %>のドキュメント一覧</h2>
+        <% if (documents.length > 0) { %>
+            <div class="list-group">
+                <% documents.forEach(doc => { %>
+                    <div class="list-group-item">
+                        <pre><%= JSON.stringify(doc, null, 2) %></pre>
+                    </div>
                 <% }); %>
-            </ul>
+            </div>
         <% } else { %>
-            <p>コレクションがありません。</p>
+            <p>ドキュメントがありません。</p>
         <% } %>
     </main>
 
