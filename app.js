@@ -45,7 +45,7 @@ const User = staffDb.model('User', UserSchema, 'everyone');
 
 // コレクションの設定
 const collectionMapping = {
-    job: { db: 'job', collection: 'default' },
+    job: { db: 'job', collection: 'job' },
     device: { db: 'device', collection: 'default' },
     kitting: { db: 'kitting', collection: 'default' },
     staff: { db: 'staff', collection: 'everyone' },
@@ -177,6 +177,62 @@ app.get('/manager/:db/view/:collection', async (req, res) => {
     } catch (err) {
         console.error('Error fetching documents:', err);
         renderMessage(res, 'エラー', `ドキュメント一覧の取得に失敗しました。詳細: ${err.message}`, `/manager/${db}/list`);
+    }
+});
+
+// Jobモデルの定義
+const jobDb = mongoose.connection.useDb('job', { useCache: true });
+const JobSchema = new mongoose.Schema({
+    projectName: { type: String, required: true },
+    projectAlias: { type: String, required: true },
+    staff: { type: String, required: true },
+    startDate: Date,
+    endDate: Date,
+    createdAt: { type: Date, default: Date.now }
+});
+const Job = jobDb.model('Job', JobSchema, 'job');
+
+// 新規案件ページ表示ルート
+app.get('/manager/job/new', async (req, res) => {
+    try {
+        const database = mongoose.connection.useDb('staff');
+        const collections = await database.db.listCollections().toArray();
+        const staffCollections = collections.map(col => col.name);
+        staffCollections.unshift('everyone'); // "everyone"を先頭に追加
+
+        res.render('newjob', {
+            title: '新規案件',
+            staffCollections // newjob.ejsに渡す
+        });
+    } catch (err) {
+        console.error('Error fetching staff collections:', err);
+        res.status(500).send('スタッフ情報の取得に失敗しました');
+    }
+});
+
+// 新規案件のデータ保存処理
+app.post('/manager/job/new', async (req, res) => {
+    const { projectName, projectAlias, staff, startDate, endDate } = req.body;
+
+    // 必須フィールドのチェック
+    if (!projectName || !projectAlias || !staff) {
+        return res.status(400).send('必須項目が入力されていません');
+    }
+
+    // 新規案件の保存処理
+    try {
+        const newJob = new Job({
+            projectName,
+            projectAlias,
+            staff,
+            startDate: startDate ? new Date(startDate) : null,
+            endDate: endDate ? new Date(endDate) : null
+        });
+        await newJob.save();
+        res.redirect('/manager/job/list'); // 作成後、案件リストページにリダイレクト
+    } catch (err) {
+        console.error('Error saving job:', err);
+        res.status(500).send('新規案件の保存に失敗しました');
     }
 });
 
