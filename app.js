@@ -1,5 +1,6 @@
 // 必要なモジュールと設定
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
 const mongoose = require('mongoose');
@@ -8,6 +9,9 @@ const expressLayouts = require('express-ejs-layouts');
 
 const app = express();
 const PORT = 5000;
+
+// プロジェクトディレクトリ
+const PROJECT_ROOT = path.join(__dirname);
 
 // MongoDBに接続
 mongoose.connect('mongodb://localhost/admin', { useNewUrlParser: true, useUnifiedTopology: true })
@@ -234,6 +238,61 @@ app.post('/manager/job/new', async (req, res) => {
         console.error('Error saving job:', err);
         res.status(500).send('新規案件の保存に失敗しました');
     }
+});
+
+// /admin/src - ソースコードビューアページのルート
+app.get('/admin/src', (req, res) => {
+    function getDirectoryTree(dirPath) {
+        const files = fs.readdirSync(dirPath);
+        return files
+            .filter(file => file !== '.git' && file !== 'node_modules') // 除外条件を追加
+            .map(file => {
+                const fullPath = path.join(dirPath, file);
+                const isDirectory = fs.statSync(fullPath).isDirectory();
+                return {
+                    name: file,
+                    path: fullPath.replace(PROJECT_ROOT, ''), // 相対パスに変換
+                    isDirectory,
+                    children: isDirectory ? getDirectoryTree(fullPath) : null
+                };
+            });
+    }
+
+    const tree = getDirectoryTree(PROJECT_ROOT);
+    res.render('src', { title: 'ソースコード一覧', tree });
+});
+
+// 個別ファイル表示エンドポイント
+app.get('/admin/src/view', (req, res) => {
+    const filePath = path.join(PROJECT_ROOT, req.query.file);
+    if (!filePath.startsWith(PROJECT_ROOT)) {
+        return res.status(400).send('無効なファイルパスです');
+    }
+    fs.readFile(filePath, 'utf8', (err, content) => {
+        if (err) {
+            return res.status(500).send('ファイルの読み込みに失敗しました');
+        }
+        res.render('file', { title: req.query.file, content });
+    });
+});
+
+// /admin/src/file - ファイル内容取得のエンドポイント
+app.get('/admin/src/file', (req, res) => {
+    const fileName = req.query.name;
+    const filePath = path.join(__dirname, fileName);
+
+    // セキュリティチェック: プロジェクトディレクトリ外のファイルにアクセスしないよう制限
+    if (!filePath.startsWith(__dirname)) {
+        return res.status(400).send('不正なファイルパスです');
+    }
+
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading file:', err);
+            return res.status(500).send('ファイルの読み込みに失敗しました');
+        }
+        res.send(data);
+    });
 });
 
 app.get('/login', (req, res) => {
