@@ -1,4 +1,4 @@
-<main class="container">
+<div class="container">
 	<% if (documents && documents.length > 0) { %>
 		<table class="table table-bordered">
 			<thead>
@@ -16,17 +16,12 @@
 						<% Object.entries(doc).forEach(([key, value]) => { %>
 							<% if (key !== '_id' && key !== '__v') { %>
 								<td>
-									<% if (['startDate', 'endDate', 'createdAt'].includes(key) && value) { %>
+									<% if (['開始日', '終了日', '作成日'].includes(key) && value) { %>
+										<!-- 日付を YYYY/MM/DD 形式で表示 -->
 										<%= new Date(value).toLocaleDateString('ja-JP', {
 											year: 'numeric',
 											month: '2-digit',
 											day: '2-digit'
-										}) %>
-										<%= new Date(value).toLocaleTimeString('ja-JP', {
-											hour: '2-digit',
-											minute: '2-digit',
-											second: '2-digit',
-											hour12: false
 										}) %>
 									<% } else { %>
 										<%= value %>
@@ -41,4 +36,4 @@
 	<% } else { %>
 		<p>ドキュメントがありません。</p>
 	<% } %>
-</main>
+</div>
