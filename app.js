@@ -34,6 +34,12 @@ app.use(session({
     saveUninitialized: true
 }));
 
+// グローバルミドルウェア: userRoleが常にテンプレートに渡されるようにする
+app.use((req, res, next) => {
+    res.locals.userRole = req.session.userRole || 'guest'; // userRoleがない場合は'guest'を使用
+    next();
+});
+
 // express-ejs-layouts の設定
 app.use(expressLayouts);
 app.set('layout', 'layouts/base');
