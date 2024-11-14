@@ -166,7 +166,7 @@ app.get('/manager/:db/list', async (req, res) => {
     }
 });
 
-// コレクション内のドキュメント表示ルート
+// コレクション内のドキュメント表示ルート ■　削除予定 ■
 app.get('/manager/:db/view/:collection', async (req, res) => {
     const { db, collection } = req.params;
     const config = getCollectionConfig(db);
@@ -184,6 +184,31 @@ app.get('/manager/:db/view/:collection', async (req, res) => {
             documents,
             collectionName: collection,
             db // 追加: db変数を渡す
+        });
+    } catch (err) {
+        console.error('Error fetching documents:', err);
+        renderMessage(res, 'エラー', `ドキュメント一覧の取得に失敗しました。詳細: ${err.message}`, `/manager/${db}/list`);
+    }
+});
+
+// コレクション内のドキュメント表示ルート
+app.get('/manager/:db/:collection/read', async (req, res) => {
+    const { db, collection } = req.params;
+    const config = getCollectionConfig(db);
+
+    if (!config || config.collection !== collection) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです', `/manager/${db}/list`);
+    }
+
+    try {
+        const database = mongoose.connection.useDb(config.db);
+        const documents = await database.collection(collection).find().toArray();
+
+        res.render('read', {
+            title: `${collection}のドキュメント一覧`,
+            documents,
+            collectionName: collection,
+            db
         });
     } catch (err) {
         console.error('Error fetching documents:', err);

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="container my-4">
+        <h1><%= title %></h1>
+        <a href="/manager" class="btn btn-primary">戻る</a>
+    </header>
+
+    <main class="container">
+        <% if (documents && documents.length > 0) { %>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <% Object.keys(documents[0]).forEach(field => { %>
+                            <th><%= field %></th>
+                        <% }) %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% documents.forEach(doc => { %>
+                        <tr>
+                            <% Object.values(doc).forEach(value => { %>
+                                <td><%= value %></td>
+                            <% }) %>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        <% } else { %>
+            <p>ドキュメントがありません。</p>
+        <% } %>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
