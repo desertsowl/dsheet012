@@ -7,6 +7,12 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const expressLayouts = require('express-ejs-layouts');
 
+require('dotenv').config();
+if (!process.env.SECRET_KEY) {
+    console.error('SECRET_KEY is not defined in .env file');
+    process.exit(1); // 環境変数がない場合はアプリを終了
+}
+
 const app = express();
 const PORT = 5000;
 
@@ -22,7 +28,8 @@ mongoose.connect('mongodb://localhost/admin', { useNewUrlParser: true, useUnifie
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
-    secret: 'your_secret_key',
+	// SECRET_KEYが設定されていない場合にデフォルトを使用
+    secret: process.env.SECRET_KEY || 'default_secret_key', 
     resave: false,
     saveUninitialized: true
 }));
