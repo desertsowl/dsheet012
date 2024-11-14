@@ -5,12 +5,12 @@
             <input type="text" id="案件名" name="案件名" class="form-control" required>
         </div>
         <div class="mb-3">
-            <label for="案件略称" class="form-label">案件略称 (必須)</label>
-            <input type="text" id="案件略称" name="案件略称" class="form-control" required>
+            <label for="略称" class="form-label">略称 (必須)</label>
+            <input type="text" id="略称" name="略称" class="form-control" required>
         </div>
         <div class="mb-3">
-            <label for="スタッフ編成" class="form-label">スタッフ編成 (必須)</label>
-            <select id="スタッフ編成" name="スタッフ編成" class="form-select" required>
+            <label for="スタッフ" class="form-label">スタッフ (必須)</label>
+            <select id="スタッフ" name="スタッフ" class="form-select" required>
                 <% staffCollections.forEach(collection => { %>
                     <option value="<%= collection %>"><%= collection %></option>
                 <% }) %>

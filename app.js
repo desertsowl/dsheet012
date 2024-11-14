@@ -220,15 +220,14 @@ app.get('/manager/:db/:collection/read', async (req, res) => {
 const jobDb = mongoose.connection.useDb('job', { useCache: true });
 const JobSchema = new mongoose.Schema({
     案件名: { type: String, required: true, unique: true },
-    案件略称: { type: String, required: true, unique: true },
-    スタッフ編成: { type: String, required: true },
+    略称: { type: String, required: true, unique: true },
+    スタッフ: { type: String, required: true },
     開始日: Date,
     終了日: Date,
     作成日: { type: Date, default: Date.now }
 });
 const Job = jobDb.model('Job', JobSchema, 'job');
 
-// 新規案件ページ表示ルート
 app.get('/manager/job/new', async (req, res) => {
     try {
         const database = mongoose.connection.useDb('staff');
@@ -248,17 +247,17 @@ app.get('/manager/job/new', async (req, res) => {
 
 // 新規案件のデータ保存処理
 app.post('/manager/job/new', async (req, res) => {
-    const { 案件名, 案件略称, スタッフ編成, 開始日, 終了日 } = req.body;
+    const { 案件名, 略称, スタッフ, 開始日, 終了日 } = req.body;
 
-    if (!案件名 || !案件略称 || !スタッフ編成) {
+    if (!案件名 || !略称 || !スタッフ) {
         return res.status(400).send('必須項目が入力されていません');
     }
 
     try {
         const newJob = new Job({
             案件名,
-            案件略称,
-            スタッフ編成,
+            略称,
+            スタッフ,
             開始日: 開始日 ? new Date(開始日) : null,
             終了日: 終了日 ? new Date(終了日) : null
         });
