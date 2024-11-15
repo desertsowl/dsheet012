@@ -1,0 +1,32 @@
+<div class="container">
+    <h1>案件編集</h1>
+    <form action="/manager/job/<%= job._id %>/edit" method="POST">
+        <div class="mb-3">
+            <label for="案件名" class="form-label">案件名</label>
+            <input type="text" id="案件名" name="案件名" class="form-control" value="<%= job.案件名 %>" required>
+        </div>
+        <div class="mb-3">
+            <label for="略称" class="form-label">略称</label>
+            <input type="text" id="略称" name="略称" class="form-control" value="<%= job.略称 %>" required>
+        </div>
+        <div class="mb-3">
+            <label for="スタッフ" class="form-label">スタッフ</label>
+            <select id="スタッフ" name="スタッフ" class="form-select" required>
+                <% staffCollections.forEach(collection => { %>
+                    <option value="<%= collection %>" <%= job.スタッフ === collection ? 'selected' : '' %>><%= collection %></option>
+                <% }) %>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="開始日" class="form-label">開始日</label>
+            <input type="date" id="開始日" name="開始日" class="form-control" value="<%= job.開始日 ? job.開始日.toISOString().substring(0, 10) : '' %>">
+        </div>
+        <div class="mb-3">
+            <label for="終了日" class="form-label">終了日</label>
+            <input type="date" id="終了日" name="終了日" class="form-control" value="<%= job.終了日 ? job.終了日.toISOString().substring(0, 10) : '' %>">
+        </div>
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a href="/manager" class="btn btn-secondary">戻る</a>
+    </form>
+</div>
+

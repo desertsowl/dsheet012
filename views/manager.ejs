@@ -1,37 +1,14 @@
 <div class="container">
-    <h1 class="mt-5">監督者ページ</h1>
+    <h1>監督者ページ</h1>
 
-    <div class="mt-4">
-        <h2>管理</h2>
-
-        <ul>
-            <!-- 案件書類 -->
+    <h2>案件一覧</h2>
+    <ul>
+        <% jobs.forEach(job => { %>
             <li>
-                <h3>案件書類</h3>
-                <a href="/manager/job/new">新規</a> | 
-                <a href="/manager/job/job/read">リスト</a>
+                <a href="/manager/job/<%= job._id %>/edit"><%= job.案件名 %></a>
             </li>
+        <% }) %>
+    </ul>
 
-            <!-- 機器台帳 -->
-            <li>
-                <h3>機器台帳</h3>
-                <a href="/manager/device/new">新規</a> | 
-                <a href="/manager/device/list">リスト</a>
-            </li>
-
-            <!-- 作業進捗 -->
-            <li>
-                <h3>作業進捗</h3>
-                <a href="/manager/kitting/new">新規</a> | 
-                <a href="/manager/kitting/list">リスト</a>
-            </li>
-
-            <!-- スタッフ管理 -->
-            <li>
-                <h3>スタッフ管理</h3>
-                <a href="/manager/staff/new">新規</a> | 
-                <a href="/manager/staff/list">リスト</a>
-            </li>
-        </ul>
-    </div>
 </div>
+

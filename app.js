@@ -275,6 +275,43 @@ app.post('/manager/job/new', async (req, res) => {
     }
 });
 
+// 編集ページ表示エンドポイント
+app.get('/manager/job/:id/edit', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const job = await Job.findById(id);
+        const database = mongoose.connection.useDb('staff');
+        const collections = await database.db.listCollections().toArray();
+        const staffCollections = collections.map(col => col.name);
+        staffCollections.unshift('everyone');
+
+        res.render('edit', { title: '案件編集', job, staffCollections });
+    } catch (err) {
+        console.error('Error fetching job or staff collections:', err);
+        res.status(500).send('案件情報の取得に失敗しました');
+    }
+});
+
+// 編集内容を保存するエンドポイント
+app.post('/manager/job/:id/edit', async (req, res) => {
+    const { id } = req.params;
+    const { 案件名, 略称, スタッフ, 開始日, 終了日 } = req.body;
+
+    try {
+        await Job.findByIdAndUpdate(id, {
+            案件名,
+            略称,
+            スタッフ,
+            開始日: 開始日 ? new Date(開始日) : null,
+            終了日: 終了日 ? new Date(終了日) : null
+        });
+        res.redirect('/manager');
+    } catch (err) {
+        console.error('Error updating job:', err);
+        res.status(500).send('案件の更新に失敗しました');
+    }
+});
+
 // /admin/src - ソースコードビューアページのルート
 app.get('/admin/src', (req, res) => {
     function getDirectoryTree(dirPath) {
@@ -378,8 +415,14 @@ app.get('/admin', (req, res) => {
 });
 
 // 監督者ページ
-app.get('/manager', (req, res) => {
-    res.render('manager', { title: '監督者ページ' });
+app.get('/manager', async (req, res) => {
+    try {
+        const jobs = await Job.find();
+        res.render('manager', { title: '監督者ページ', jobs });
+    } catch (err) {
+        console.error('Error fetching jobs:', err);
+        res.status(500).send('案件の取得に失敗しました');
+    }
 });
 
 // 作業者ページ
