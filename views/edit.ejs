@@ -1,5 +1,8 @@
 <div class="container">
-    <h1>案件編集</h1>
+    <h1 class="d-flex align-items-center">
+        <i class="bi bi-pencil me-2" style="color: #3399cc;"></i> <!-- アイコンを追加 -->
+        案件編集
+    </h1>
     <form action="/manager/job/<%= job._id %>/edit" method="POST">
         <div class="mb-3">
             <label for="案件名" class="form-label">案件名</label>
@@ -29,4 +32,3 @@
         <a href="/manager" class="btn btn-secondary">戻る</a>
     </form>
 </div>
-

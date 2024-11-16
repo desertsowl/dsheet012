@@ -1,14 +1,15 @@
 <div class="container">
-    <h1>監督者ページ</h1>
 
-    <h2>案件一覧</h2>
-    <ul>
+    <h1 class="d-flex align-items-center">
+        <i class="bi bi-briefcase me-2" style="color: #3399cc;"></i> <!-- アイコンを追加 -->
+        案件一覧
+    </h1>
+    <ul class="list-group list-group-flush">
         <% jobs.forEach(job => { %>
-            <li>
+            <li class="list-group-item">
                 <a href="/manager/job/<%= job._id %>/edit"><%= job.案件名 %></a>
             </li>
         <% }) %>
     </ul>
 
 </div>
-

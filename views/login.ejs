@@ -1,5 +1,8 @@
 <div class="container">
-    <h1 class="mt-5">ログイン</h1>
+    <h1 class="mt-5 d-flex align-items-center">
+        <i class="bi bi-person-circle me-2" style="color: #3399cc;"></i> <!-- アイコンを追加 -->
+        ログイン
+    </h1>
     <form method="POST" action="/login">
         <div class="mb-3">
             <label for="username" class="form-label">ユーザー名</label>
@@ -9,7 +12,6 @@
             <label for="password" class="form-label">パスワード</label>
             <input type="password" class="form-control" id="password" name="password" required>
         </div>
-        <button type="submit" class="btn btn-primary">ログイン</button>
+        <button type="submit" class="btn btn-primary btn-block w-100">ログイン</button>
     </form>
 </div>
-
