@@ -101,7 +101,7 @@ app.get('/', (req, res) => {
     res.redirect('/login');
 });
 
-// 新規作成ルート
+// DB作成
 app.get('/admin/:db/new', async (req, res) => {
     const { db } = req.params;
     const config = getCollectionConfig(db);
@@ -126,7 +126,7 @@ app.get('/admin/:db/new', async (req, res) => {
     }
 });
 
-// 削除ルート
+// DB削除ルート
 app.get('/admin/:db/delete', async (req, res) => {
     const { db } = req.params;
     const config = getCollectionConfig(db);
@@ -151,7 +151,7 @@ app.get('/admin/:db/delete', async (req, res) => {
     }
 });
 
-// コレクションリスト表示ルート
+// DBコレクション一覧
 app.get('/manager/:db/list', async (req, res) => {
     const { db } = req.params;
     const config = getCollectionConfig(db);
@@ -172,7 +172,7 @@ app.get('/manager/:db/list', async (req, res) => {
     }
 });
 
-// コレクション内のドキュメント表示ルート ■　削除予定 ■
+// DBドキュメント・ダンプ
 app.get('/manager/:db/view/:collection', async (req, res) => {
     const { db, collection } = req.params;
     const config = getCollectionConfig(db);
@@ -197,7 +197,7 @@ app.get('/manager/:db/view/:collection', async (req, res) => {
     }
 });
 
-// コレクション内のドキュメント表示ルート
+// DBドキュメント表形式
 app.get('/manager/:db/:collection/read', async (req, res) => {
     const { db, collection } = req.params;
     const config = getCollectionConfig(db);
@@ -234,6 +234,19 @@ const JobSchema = new mongoose.Schema({
 });
 const Job = jobDb.model('Job', JobSchema, 'job');
 
+// 案件情報ページ
+app.get('/manager/job/:id/info', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const job = await Job.findById(id);
+        res.render('info', { title: '案件情報', job });
+    } catch (err) {
+        console.error('Error fetching job info:', err);
+        res.status(500).send('案件情報の取得に失敗しました');
+    }
+});
+
+// 新規案件ページ
 app.get('/manager/job/new', async (req, res) => {
     try {
         const database = mongoose.connection.useDb('staff');
@@ -251,7 +264,7 @@ app.get('/manager/job/new', async (req, res) => {
     }
 });
 
-// 新規案件のデータ保存処理
+// 新規案件ページ(保存)
 app.post('/manager/job/new', async (req, res) => {
     const { 案件名, 略称, スタッフ, 開始日, 終了日 } = req.body;
 
@@ -275,7 +288,7 @@ app.post('/manager/job/new', async (req, res) => {
     }
 });
 
-// 編集ページ表示エンドポイント
+// 案件編集ページ
 app.get('/manager/job/:id/edit', async (req, res) => {
     const { id } = req.params;
     try {
@@ -292,7 +305,7 @@ app.get('/manager/job/:id/edit', async (req, res) => {
     }
 });
 
-// 編集内容を保存するエンドポイント
+// 案件編集ページ(保存)
 app.post('/manager/job/:id/edit', async (req, res) => {
     const { id } = req.params;
     const { 案件名, 略称, スタッフ, 開始日, 終了日 } = req.body;
@@ -312,7 +325,7 @@ app.post('/manager/job/:id/edit', async (req, res) => {
     }
 });
 
-// /admin/src - ソースコードビューアページのルート
+// ソースコード一覧
 app.get('/admin/src', (req, res) => {
     function getDirectoryTree(dirPath) {
         const files = fs.readdirSync(dirPath);
@@ -334,7 +347,7 @@ app.get('/admin/src', (req, res) => {
     res.render('src', { title: 'ソースコード一覧', tree });
 });
 
-// 個別ファイル表示エンドポイント
+// ソースコードビューア
 app.get('/admin/src/view', (req, res) => {
     const filePath = path.join(PROJECT_ROOT, req.query.file);
     if (!filePath.startsWith(PROJECT_ROOT)) {
@@ -348,30 +361,12 @@ app.get('/admin/src/view', (req, res) => {
     });
 });
 
-// /admin/src/file - ファイル内容取得のエンドポイント
-app.get('/admin/src/file', (req, res) => {
-    const fileName = req.query.name;
-    const filePath = path.join(__dirname, fileName);
-
-    // セキュリティチェック: プロジェクトディレクトリ外のファイルにアクセスしないよう制限
-    if (!filePath.startsWith(__dirname)) {
-        return res.status(400).send('不正なファイルパスです');
-    }
-
-    fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading file:', err);
-            return res.status(500).send('ファイルの読み込みに失敗しました');
-        }
-        res.send(data);
-    });
-});
-
+// ログイン処理
 app.get('/login', (req, res) => {
     res.render('login', { title: 'ログイン' });
 });
 
-// ログイン処理
+// ログイン処理(POST)
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     console.log('Received username:', username);
