@@ -126,8 +126,23 @@ app.get('/admin/:db/new', async (req, res) => {
     }
 });
 
-// DB削除ルート
-app.get('/admin/:db/delete', async (req, res) => {
+// DB削除確認ページ
+app.get('/admin/:db/delete', (req, res) => {
+    const { db } = req.params;
+    const config = getCollectionConfig(db);
+
+    if (!config) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです');
+    }
+
+    res.render('delete_confirm', {
+        title: '削除確認',
+        dbName: db
+    });
+});
+
+// DB削除処理
+app.post('/admin/:db/delete', async (req, res) => {
     const { db } = req.params;
     const config = getCollectionConfig(db);
 

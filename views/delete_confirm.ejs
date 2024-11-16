@@ -1,0 +1,8 @@
+<div class="container">
+    <h1>削除確認</h1>
+    <p>データベース「<strong><%= dbName %></strong>」を削除してもよろしいですか？</p>
+    <form action="/admin/<%= dbName %>/delete" method="POST">
+        <button type="submit" class="btn btn-danger">削除する</button>
+        <a href="/admin" class="btn btn-secondary">キャンセル</a>
+    </form>
+</div>
