@@ -66,7 +66,8 @@ const collectionMapping = {
     device: { db: 'device', collection: 'default' },
     kitting: { db: 'kitting', collection: 'default' },
     staff: { db: 'staff', collection: 'everyone' },
-    systemlog: { db: 'systemlog', collection: 'default' }
+	systemlog: { db: 'systemlog', collection: 'default' },
+	sheet: { db: 'sheet', collection: 'default' }
 };
 
 // ヘルパー関数
@@ -337,6 +338,69 @@ app.post('/manager/job/:id/edit', async (req, res) => {
     } catch (err) {
         console.error('Error updating job:', err);
         res.status(500).send('案件の更新に失敗しました');
+    }
+});
+
+
+// シートDBの新規作成
+app.get('/admin/sheet/new', async (req, res) => {
+    const config = getCollectionConfig('sheet');
+
+    if (!config) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです');
+    }
+
+    try {
+        const database = mongoose.connection.useDb(config.db);
+        const collectionFound = await collectionExists(database, config.collection);
+
+        if (collectionFound) {
+            return renderMessage(res, '情報', `コレクション "${config.collection}" は既に存在します`);
+        }
+
+        await database.createCollection(config.collection);
+        renderMessage(res, '成功', `シートDB "${config.collection}" を新規作成しました`);
+    } catch (err) {
+        console.error('Error during sheet collection creation:', err);
+        renderMessage(res, 'エラー', `シートDBの新規作成に失敗しました。詳細: ${err.message}`);
+    }
+});
+
+// シートDBの削除確認ページ
+app.get('/admin/sheet/delete', (req, res) => {
+    const config = getCollectionConfig('sheet');
+
+    if (!config) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです');
+    }
+
+    res.render('delete_confirm', {
+        title: '削除確認',
+        dbName: 'sheet'
+    });
+});
+
+// シートDBの削除処理
+app.post('/admin/sheet/delete', async (req, res) => {
+    const config = getCollectionConfig('sheet');
+
+    if (!config) {
+        return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです');
+    }
+
+    try {
+        const database = mongoose.connection.useDb(config.db);
+        const collectionFound = await collectionExists(database, config.collection);
+
+        if (!collectionFound) {
+            return renderMessage(res, '情報', `コレクション "${config.collection}" は存在しません`);
+        }
+
+        await database.dropCollection(config.collection);
+        renderMessage(res, '成功', `シートDB "${config.collection}" の削除に成功しました`);
+    } catch (err) {
+        console.error('Error during sheet collection deletion:', err);
+        renderMessage(res, 'エラー', `シートDBの削除に失敗しました。詳細: ${err.message}`);
     }
 });
 
