@@ -249,15 +249,15 @@ const JobSchema = new mongoose.Schema({
 });
 const Job = jobDb.model('Job', JobSchema, 'job');
 
-// 案件情報ページ
+// 案件資料ページ
 app.get('/manager/job/:id/info', async (req, res) => {
     const { id } = req.params;
     try {
         const job = await Job.findById(id);
-        res.render('info', { title: '案件情報', job });
+        res.render('info', { title: '案件資料', job });
     } catch (err) {
         console.error('Error fetching job info:', err);
-        res.status(500).send('案件情報の取得に失敗しました');
+        res.status(500).send('案件資料の取得に失敗しました');
     }
 });
 
