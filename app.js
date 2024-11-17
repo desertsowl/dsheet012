@@ -6,6 +6,7 @@ const session = require('express-session');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const expressLayouts = require('express-ejs-layouts');
+const MongoStore = require('connect-mongo');
 
 require('dotenv').config();
 if (!process.env.SECRET_KEY) {
@@ -27,18 +28,17 @@ mongoose.connect('mongodb://localhost/admin', { useNewUrlParser: true, useUnifie
 // ミドルウェア設定
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(session({
-	// SECRET_KEYが設定されていない場合にデフォルトを使用
-    secret: process.env.SECRET_KEY || 'default_secret_key', 
-    resave: false,
-    saveUninitialized: true
-}));
 
-// グローバルミドルウェア: userRoleが常にテンプレートに渡されるようにする
-app.use((req, res, next) => {
-    res.locals.userRole = req.session.userRole || 'guest'; // userRoleがない場合は'guest'を使用
-    next();
-});
+app.use(session({
+    secret: process.env.SECRET_KEY || 'default_secret_key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 3600000 }, // 1時間の有効期限
+    store: MongoStore.create({
+        mongoUrl: 'mongodb://localhost/admin',
+        collectionName: 'sessions' // セッション情報を保存するコレクション名
+    })
+}));
 
 // express-ejs-layouts の設定
 app.use(expressLayouts);
@@ -88,8 +88,8 @@ const collectionExists = async (database, collectionName) => {
 
 // ミドルウェア: ユーザーの役割を設定
 app.use((req, res, next) => {
-    if (req.session.userId) {
-        res.locals.userRole = req.session.userRole || 'guest'; // デフォルトは'guest'
+    if (req.session.userId && req.session.userRole) {
+        res.locals.userRole = req.session.userRole;
     } else {
         res.locals.userRole = 'guest';
     }
@@ -388,11 +388,10 @@ app.post('/login', async (req, res) => {
 
     try {
         const user = await User.findOne({ username: username.toLowerCase() });
-        if (!user) {
-            console.log('User not found');
-            return res.status(400).send('ユーザーが見つかりません');
-        }
-
+if (!user || !user.group) {
+    console.error('User not found or group is missing');
+    return res.status(400).send('ユーザー情報が不正です');
+}
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).send('パスワードが間違っています');
