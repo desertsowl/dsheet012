@@ -1,0 +1,17 @@
+<div class="container">
+<h1>システムステータス</h1>
+<p>サーバー時間: <%= status.serverTime %></p>
+<p>データベース接続状態: <%= status.dbStatus %></p>
+
+<h2>コレクション一覧</h2>
+<% Object.keys(status.collections).forEach(dbName => { %>
+    <h3><%= dbName %> データベース</h3>
+    <ul>
+        <% status.collections[dbName].forEach(collection => { %>
+            <li><%= collection %></li>
+        <% }) %>
+    </ul>
+<% }) %>
+
+<a href="/admin">管理者ページに戻る</a>
+</div>
