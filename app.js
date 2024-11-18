@@ -446,19 +446,29 @@ app.get('/login', (req, res) => {
 });
 
 // ログイン処理(POST)
+// ログイン処理(POST)
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     console.log('Received username:', username);
 
     try {
         const user = await User.findOne({ username: username.toLowerCase() });
-if (!user || !user.group) {
-    console.error('User not found or group is missing');
-    return res.status(400).send('ユーザー情報が不正です');
-}
+        if (!user || !user.group) {
+            console.error('User not found or group is missing');
+            return res.render('result', {
+                title: 'ログインエラー',
+                message: 'ユーザー名が存在しないか、グループが未設定です。',
+                backLink: '/login'
+            });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).send('パスワードが間違っています');
+            return res.render('result', {
+                title: 'ログインエラー',
+                message: 'パスワードが間違っています。',
+                backLink: '/login'
+            });
         }
 
         // ログイン成功
@@ -478,7 +488,11 @@ if (!user || !user.group) {
 
     } catch (err) {
         console.error('Detailed error during login:', err);
-        res.status(500).send('サーバーエラー');
+        res.render('result', {
+            title: 'サーバーエラー',
+            message: 'サーバーでエラーが発生しました。詳細については管理者にお問い合わせください。',
+            backLink: '/login'
+        });
     }
 });
 
