@@ -1,11 +1,10 @@
 <div class="container">
 
     <h1 class="d-flex align-items-center headline">
-        <i class="bi bi-briefcase me-2" style="color: #3399cc;"></i>
         案件一覧
 <a href="/manager/job/new" class="bi bi-plus-circle-fill ms-3 fs-2" style="color: #0d6efe;"></a>
     </h1>
-    <ul class="list-group list-group-flush">
+    <ul class="list-group list-group-flush ms-3 fs-3">
         <% jobs.forEach(job => { %>
             <li class="list-group-item">
                 <a href="/manager/job/<%= job._id %>/info"><%= job.案件名 %></a>

@@ -317,7 +317,7 @@ app.get('/manager/job/:id/edit', async (req, res) => {
         res.render('edit', { title: '案件編集', job, staffCollections });
     } catch (err) {
         console.error('Error fetching job or staff collections:', err);
-        res.status(500).send('案件情報の取得に失敗しました');
+        res.status(500).send('案件内容の取得に失敗しました');
     }
 });
 
