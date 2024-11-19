@@ -2,9 +2,11 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const session = require('express-session');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const expressLayouts = require('express-ejs-layouts');
+const MongoStore = require('connect-mongo');
 
 require('dotenv').config();
 if (!process.env.SECRET_KEY) {
@@ -26,6 +28,17 @@ mongoose.connect('mongodb://localhost/admin', { useNewUrlParser: true, useUnifie
 // ミドルウェア設定
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.use(session({
+    secret: process.env.SECRET_KEY || 'default_secret_key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 3600000 }, // 1時間の有効期限
+    store: MongoStore.create({
+        mongoUrl: 'mongodb://localhost/admin',
+        collectionName: 'sessions' // セッション情報を保存するコレクション名
+    })
+}));
 
 // express-ejs-layouts の設定
 app.use(expressLayouts);
@@ -73,6 +86,16 @@ const collectionExists = async (database, collectionName) => {
         return false;
     }
 };
+
+// ミドルウェア: ユーザーの役割を設定
+app.use((req, res, next) => {
+    if (req.session.userId && req.session.userRole) {
+        res.locals.userRole = req.session.userRole;
+    } else {
+        res.locals.userRole = 'guest';
+    }
+    next();
+});
 
 // ホームページをログインページにリダイレクト
 app.get('/', (req, res) => {
@@ -385,6 +408,10 @@ app.post('/login', async (req, res) => {
             });
         }
 
+        // ログイン成功
+        req.session.userId = user._id;
+        req.session.userRole = user.group === 8 ? 'admin' : user.group === 4 ? 'manager' : user.group === 2 ? 'worker' : 'guest';
+
         // 資格に基づいてリダイレクト
         if (user.group === 8) {
             res.redirect('/admin');
@@ -464,7 +491,12 @@ app.get('/admin/status/system', async (req, res) => {
 
 // ログアウト処理
 app.get('/logout', (req, res) => {
-	res.redirect('/login');
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).send('ログアウトに失敗しました');
+        }
+        res.redirect('/login');
+    });
 });
 
 // サーバー起動

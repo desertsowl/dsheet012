@@ -1,0 +1,32 @@
+<div id="drawerMenu">
+    <nav>
+        <ul class="list-unstyled">
+            <% if (userRole === 'admin') { %>
+                <li><a href="/admin" class="nav-link">管理者ホーム</a></li>
+                <li><a href="/manager" class="nav-link">監督者ページ</a></li>
+                <li><a href="/worker" class="nav-link">作業者ページ</a></li>
+                <li><a href="/logout" class="nav-link">ログアウト</a></li>
+            <% } else if (userRole === 'manager') { %>
+                <li><a href="/manager" class="nav-link">監督者ホーム</a></li>
+                <li><a href="/worker" class="nav-link">作業者ページ</a></li>
+                <li><a href="/help" class="nav-link">使い方</a></li>
+                <li><a href="/faq" class="nav-link">FAQ</a></li>
+                <li><a href="/contact" class="nav-link">お問い合わせ</a></li>
+                <li><a href="/logout" class="nav-link">ログアウト</a></li>
+            <% } else if (userRole === 'worker') { %>
+                <li><a href="/worker" class="nav-link">作業者ホーム</a></li>
+                <li><a href="/help" class="nav-link">使い方</a></li>
+                <li><a href="/faq" class="nav-link">FAQ</a></li>
+                <li><a href="/contact" class="nav-link">お問い合わせ</a></li>
+                <li><a href="/logout" class="nav-link">ログアウト</a></li>
+            <% } else { %>
+                <li><a href="/worker" class="nav-link"><% if(userRole) userRole  %>ホーム</a></li>
+                <li><a href="/help" class="nav-link">使い方</a></li>
+                <li><a href="/faq" class="nav-link">FAQ</a></li>
+                <li><a href="/contact" class="nav-link">お問い合わせ</a></li>
+                <li><a href="/logout" class="nav-link">ログアウト</a></li>
+            <% } %>
+        </ul>
+    </nav>
+</div>
+
