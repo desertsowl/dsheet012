@@ -1,3 +1,49 @@
-<main class="container">
-	<pre><code><%= content %></code></pre>
+<main class="container mt-5">
+    <h1 class="mb-3"><%= title %></h1>
+    <div class="d-flex justify-content-end mb-3">
+        <button class="btn btn-primary" id="copyButton">コピー</button>
+    </div>
+    <pre id="sourceCode" style="background: #f8f9fa; padding: 1rem; border: 1px solid #ddd; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;">
+<%= content %>
+    </pre>
 </main>
+
+<script>
+    document.getElementById('copyButton').addEventListener('click', function () {
+        const sourceCodeElement = document.getElementById('sourceCode');
+        const sourceCode = sourceCodeElement.innerText;
+
+        // モダンな方法でクリップボードにコピー
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(sourceCode)
+                .then(() => alert('ソースコードをコピーしました！'))
+                .catch(err => {
+                    console.error('クリップボードへのコピーに失敗:', err);
+                    fallbackCopy(sourceCodeElement);
+                });
+        } else {
+            // フォールバックメソッドを使用
+            fallbackCopy(sourceCodeElement);
+        }
+    });
+
+    // フォールバックメソッド: テキストエリアを使用してコピー
+    function fallbackCopy(element) {
+        const textArea = document.createElement('textarea');
+        textArea.value = element.innerText;
+        textArea.style.position = 'fixed'; // 画面外に配置
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+
+        try {
+            document.execCommand('copy');
+            alert('ソースコードをコピーしました！ (フォールバック)');
+        } catch (err) {
+            console.error('フォールバックコピーに失敗:', err);
+            alert('コピーに失敗しました。再試行してください。');
+        }
+
+        document.body.removeChild(textArea);
+    }
+</script>
