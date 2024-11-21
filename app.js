@@ -121,6 +121,25 @@ app.use((req, res, next) => {
     next();
 });
 
+app.use(async (req, res, next) => {
+    if (req.userId) {
+        try {
+            const user = await User.findById(req.userId); // 現在のユーザーを取得
+            if (user) {
+                res.locals.user = user; // テンプレートに渡す
+            } else {
+                res.locals.user = null;
+            }
+        } catch (err) {
+            console.error('Error fetching user:', err);
+            res.locals.user = null;
+        }
+    } else {
+        res.locals.user = null;
+    }
+    next();
+});
+
 // スタッフデータベースからUserモデルの作成
 const staffDb = mongoose.connection.useDb('staff');
 const UserSchema = new mongoose.Schema({
@@ -470,14 +489,15 @@ app.post('/login', async (req, res) => {
             });
         }
 
-        // ログイン成功: セッションを作成しCookieに保存
-        const sessionId = createSession(user._id);
+        // CookieにセッションIDを保存 (Cookieベースの場合)
+        const sessionId = crypto.randomBytes(16).toString('hex'); // ランダムなセッションID生成
+        sessions[sessionId] = { userId: user._id, createdAt: Date.now() }; // セッションデータに保存
         res.cookie('sessionId', sessionId, {
-            httpOnly: true, // クライアント側でJavaScriptからアクセス不可
-            maxAge: SESSION_EXPIRY
+            httpOnly: true,
+            maxAge: 3600000 // 1時間有効
         });
 
-        // 資格に基づいてリダイレクト
+        // ユーザーグループに基づくリダイレクト
         if (user.group === 8) {
             res.redirect('/admin');
         } else if (user.group === 4) {

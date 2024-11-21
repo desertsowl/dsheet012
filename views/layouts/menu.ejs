@@ -1,11 +1,16 @@
 <div id="drawerMenu">
     <nav>
         <ul class="list-unstyled">
+            <% if (user && user.group === 8) { %>
                 <li><a href="/admin" class="nav-link">管理者ホーム</a></li>
+            <% } %>
+            <% if (user && (user.group === 8 || user.group === 4)) { %>
                 <li><a href="/manager" class="nav-link">監督者ページ</a></li>
+            <% } %>
+            <% if (user && (user.group === 8 || user.group === 4 || user.group === 2)) { %>
                 <li><a href="/worker" class="nav-link">作業者ページ</a></li>
-                <li><a href="/logout" class="nav-link">ログアウト</a></li>
+            <% } %>
+            <li><a href="/logout" class="nav-link">ログアウト</a></li>
         </ul>
     </nav>
 </div>
-
