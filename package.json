@@ -14,12 +14,13 @@
     "bcrypt": "^5.1.1",
     "bootstrap": "^5.3.3",
     "connect-mongo": "^5.1.0",
+    "cookie-parser": "^1.4.7",
     "csv-parser": "^3.0.0",
     "ejs": "^3.1.10",
     "express": "^4.21.1",
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.1",
-    "mongoose": "^8.8.0"
+    "mongoose": "^8.8.2"
   },
   "devDependencies": {
     "ejs-lint": "^2.0.0"
