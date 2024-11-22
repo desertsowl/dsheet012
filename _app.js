@@ -2,11 +2,11 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const session = require('express-session');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const expressLayouts = require('express-ejs-layouts');
-const MongoStore = require('connect-mongo');
+const cookieParser = require('cookie-parser'); // Cookieパーサーを追加
+const crypto = require('crypto'); // セッションID生成用
 
 require('dotenv').config();
 if (!process.env.SECRET_KEY) {
@@ -29,22 +29,116 @@ mongoose.connect('mongodb://localhost/admin', { useNewUrlParser: true, useUnifie
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(session({
-    secret: process.env.SECRET_KEY || 'default_secret_key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { maxAge: 3600000 }, // 1時間の有効期限
-    store: MongoStore.create({
-        mongoUrl: 'mongodb://localhost/admin',
-        collectionName: 'sessions' // セッション情報を保存するコレクション名
-    })
-}));
-
 // express-ejs-layouts の設定
 app.use(expressLayouts);
 app.set('layout', 'layouts/base');
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+app.use(cookieParser());
+
+// セッションデータ（簡易実装: メモリ内に保持）
+const sessions = {};
+
+// セッション有効期限（例: 1時間）
+const SESSION_EXPIRY = 3600000;
+
+// ヘルパー関数: セッションを生成
+function createSession(userId) {
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    sessions[sessionId] = {
+        userId,
+        createdAt: Date.now()
+    };
+    return sessionId;
+}
+
+// ヘルパー関数: セッションを検証
+function validateSession(sessionId) {
+    const session = sessions[sessionId];
+    if (!session) return false;
+
+    // セッションが期限切れの場合、削除
+    if (Date.now() - session.createdAt > SESSION_EXPIRY) {
+        delete sessions[sessionId];
+        return false;
+    }
+
+    // 有効なセッション
+    return session.userId;
+}
+
+// アクセス制御ミドルウェア
+function authorize(allowedGroups) {
+    return async (req, res, next) => {
+        if (!req.userId) {
+            return res.status(401).render('result', {
+                title: 'アクセス拒否',
+                message: 'ログインが必要です。',
+                backLink: '/login'
+            });
+        }
+
+        try {
+            // ユーザー情報を取得
+            const user = await User.findById(req.userId);
+            if (!user) {
+                return res.status(403).render('result', {
+                    title: 'アクセス拒否',
+                    message: 'ユーザー情報を確認できません。',
+                    backLink: '/login'
+                });
+            }
+
+            if (!allowedGroups.includes(user.group)) {
+                return res.status(403).render('result', {
+                    title: 'アクセス拒否',
+                    message: 'このページにアクセスする権限がありません。',
+                    backLink: '/'
+                });
+            }
+
+            next();
+        } catch (err) {
+            console.error('Error during authorization:', err);
+            res.status(500).render('result', {
+                title: 'エラー',
+                message: '認証処理中にエラーが発生しました。',
+                backLink: '/'
+            });
+        }
+    };
+}
+
+// ミドルウェア: 認証チェック
+app.use((req, res, next) => {
+    const sessionId = req.cookies.sessionId;
+    if (sessionId && validateSession(sessionId)) {
+        req.userId = sessions[sessionId].userId; // セッションが有効ならユーザーIDを設定
+    } else {
+        req.userId = null; // セッションが無効ならユーザーIDをnull
+    }
+    next();
+});
+
+app.use(async (req, res, next) => {
+    if (req.userId) {
+        try {
+            const user = await User.findById(req.userId); // 現在のユーザーを取得
+            if (user) {
+                res.locals.user = user; // テンプレートに渡す
+            } else {
+                res.locals.user = null;
+            }
+        } catch (err) {
+            console.error('Error fetching user:', err);
+            res.locals.user = null;
+        }
+    } else {
+        res.locals.user = null;
+    }
+    next();
+});
 
 // スタッフデータベースからUserモデルの作成
 const staffDb = mongoose.connection.useDb('staff');
@@ -86,16 +180,6 @@ const collectionExists = async (database, collectionName) => {
         return false;
     }
 };
-
-// ミドルウェア: ユーザーの役割を設定
-app.use((req, res, next) => {
-    if (req.session.userId && req.session.userRole) {
-        res.locals.userRole = req.session.userRole;
-    } else {
-        res.locals.userRole = 'guest';
-    }
-    next();
-});
 
 // ホームページをログインページにリダイレクト
 app.get('/', (req, res) => {
@@ -383,15 +467,12 @@ app.get('/login', (req, res) => {
 });
 
 // ログイン処理(POST)
-// ログイン処理(POST)
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    console.log('Received username:', username);
 
     try {
         const user = await User.findOne({ username: username.toLowerCase() });
         if (!user || !user.group) {
-            console.error('User not found or group is missing');
             return res.render('result', {
                 title: 'ログインエラー',
                 message: 'ユーザー名が存在しないか、グループが未設定です。',
@@ -408,11 +489,15 @@ app.post('/login', async (req, res) => {
             });
         }
 
-        // ログイン成功
-        req.session.userId = user._id;
-        req.session.userRole = user.group === 8 ? 'admin' : user.group === 4 ? 'manager' : user.group === 2 ? 'worker' : 'guest';
+        // CookieにセッションIDを保存 (Cookieベースの場合)
+        const sessionId = crypto.randomBytes(16).toString('hex'); // ランダムなセッションID生成
+        sessions[sessionId] = { userId: user._id, createdAt: Date.now() }; // セッションデータに保存
+        res.cookie('sessionId', sessionId, {
+            httpOnly: true,
+            maxAge: 3600000 // 1時間有効
+        });
 
-        // 資格に基づいてリダイレクト
+        // ユーザーグループに基づくリダイレクト
         if (user.group === 8) {
             res.redirect('/admin');
         } else if (user.group === 4) {
@@ -422,24 +507,23 @@ app.post('/login', async (req, res) => {
         } else {
             res.status(403).send('権限がありません');
         }
-
     } catch (err) {
-        console.error('Detailed error during login:', err);
+        console.error('Error during login:', err);
         res.render('result', {
             title: 'サーバーエラー',
-            message: 'サーバーでエラーが発生しました。詳細については管理者にお問い合わせください。',
+            message: 'サーバーでエラーが発生しました。再度ログインしてください。',
             backLink: '/login'
         });
     }
 });
 
-// 管理者ページ
-app.get('/admin', (req, res) => {
+// 管理者専用ページ (/admin)
+app.get('/admin', authorize([8]), (req, res) => {
     res.render('admin', { title: '管理者ページ' });
 });
 
-// 監督者ページ
-app.get('/manager', async (req, res) => {
+// 管理者および監督者がアクセス可能なページ (/manager)
+app.get('/manager', authorize([8, 4]), async (req, res) => {
     try {
         const jobs = await Job.find();
         res.render('manager', { title: '監督者ページ', jobs });
@@ -449,9 +533,14 @@ app.get('/manager', async (req, res) => {
     }
 });
 
-// 作業者ページ
-app.get('/worker', (req, res) => {
+// 管理者、監督者、作業者がアクセス可能なページ (/worker)
+app.get('/worker', authorize([8, 4, 2]), (req, res) => {
     res.render('worker', { title: '作業者ページ' });
+});
+
+// 例: 管理者と監督者がアクセス可能なリソース
+app.get('/manager/resource', authorize([8, 4]), (req, res) => {
+    res.send('このリソースは管理者と監督者がアクセスできます。');
 });
 
 // システムステータスページ
@@ -491,16 +580,15 @@ app.get('/admin/status/system', async (req, res) => {
 
 // ログアウト処理
 app.get('/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            return res.status(500).send('ログアウトに失敗しました');
-        }
-        res.redirect('/login');
-    });
+    const sessionId = req.cookies.sessionId;
+    if (sessionId) {
+        delete sessions[sessionId]; // セッションを削除
+        res.clearCookie('sessionId'); // Cookieを削除
+    }
+    res.redirect('/login');
 });
 
 // サーバー起動
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
-
