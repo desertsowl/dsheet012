@@ -35,10 +35,7 @@ const PROJECT_ROOT = path.join(__dirname);
 
 // データベース接続
 //───────────────────────────────────
-mongoose.connect('mongodb://localhost/admin', {
-		useNewUrlParser: true,
-		useUnifiedTopology: true 
-	})
+mongoose.connect('mongodb://localhost/admin')
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.log('MongoDB connection error:', err));
 
