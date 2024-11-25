@@ -229,6 +229,89 @@ const collectionExists = async (database, collectionName) => {
     }
 };
 
+// 機器コレクション読出
+//───────────────────────────────────
+app.get('/manager/device/:dbName_device/read', async (req, res) => {
+    const { dbName_device } = req.params;
+    const dbName = 'device'; // 固定データベース名
+    const devicesCollectionName = dbName_device; // コレクション名はリクエストからそのまま使用
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10; // 1ページあたりの表示件数
+
+    try {
+        // コレクション名の検証（英数字とアンダースコアのみ許可）
+        const isValidCollectionName = /^[a-zA-Z0-9_]+$/.test(devicesCollectionName);
+        if (!isValidCollectionName) {
+            console.error(`Invalid collection name: ${devicesCollectionName}`);
+            return res.render('result', {
+                title: 'エラー',
+                message: 'コレクション名が無効です。英数字とアンダースコアのみ使用できます。',
+                backLink: '/manager'
+            });
+        }
+
+        // データベース接続
+        const database = mongoose.connection.useDb(dbName);
+
+        // コレクションの存在確認
+        const collections = await database.db.listCollections({ name: devicesCollectionName }).toArray();
+        if (collections.length === 0) {
+            console.log(`Collection '${devicesCollectionName}' does not exist. Creating it.`);
+            await database.createCollection(devicesCollectionName); // コレクションを作成
+        }
+
+        const devicesCollection = database.collection(devicesCollectionName);
+
+        // ドキュメントの総数を確認
+        const totalDevices = await devicesCollection.countDocuments();
+
+        if (totalDevices === 0) {
+            // ドキュメントが存在しない場合の処理
+            return res.render('device_list', {
+                title: `${devicesCollectionName} のデバイス一覧`,
+                devices: [],
+                currentPage: page,
+                lastPage: 1,
+                hasPreviousPage: false,
+                hasNextPage: false,
+                previousPage: null,
+                nextPage: null,
+                noDataMessage: '機器データが登録されていません。登録しますか？',
+                importLink: `/manager/device/${dbName_device}/device_import`
+            });
+        }
+
+        // ページング用のデータ取得
+        const devices = await devicesCollection
+            .find()
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .toArray();
+
+        const lastPage = Math.ceil(totalDevices / limit);
+
+        res.render('device_list', {
+            title: `${devicesCollectionName} のデバイス一覧`,
+            devices,
+            currentPage: page,
+            lastPage,
+            hasPreviousPage: page > 1,
+            hasNextPage: page < lastPage,
+            previousPage: page - 1,
+            nextPage: page + 1,
+            noDataMessage: null,
+            importLink: null
+        });
+    } catch (err) {
+        console.error(`Error handling collection for '${devicesCollectionName}' in '${dbName}':`, err);
+        res.render('result', {
+            title: 'エラー',
+            message: `コレクション '${devicesCollectionName}' の処理中にエラーが発生しました。詳細: ${err.message}`,
+            backLink: '/manager'
+        });
+    }
+});
+
 
 //───────────────────────────────────
 // 5. ルーティング

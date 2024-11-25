@@ -1,0 +1,35 @@
+<h1><%= title %></h1>
+
+<% if (noDataMessage) { %>
+    <p><%= noDataMessage %></p>
+    <a href="<%= importLink %>">機器データ登録</a>
+<% } else { %>
+    <table>
+        <thead>
+            <tr>
+                <th>デバイス名</th>
+                <th>型番</th>
+                <th>登録日</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% devices.forEach(device => { %>
+                <tr>
+                    <td><%= device.デバイス名 %></td>
+                    <td><%= device.型番 %></td>
+                    <td><%= device.登録日.toLocaleDateString() %></td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+
+    <div>
+        <% if (hasPreviousPage) { %>
+            <a href="?page=<%= previousPage %>">前へ</a>
+        <% } %>
+        <span>ページ <%= currentPage %> / <%= lastPage %></span>
+        <% if (hasNextPage) { %>
+            <a href="?page=<%= nextPage %>">次へ</a>
+        <% } %>
+    </div>
+<% } %>
