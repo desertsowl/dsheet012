@@ -395,12 +395,23 @@ app.get('/manager/job/:id/edit', async (req, res) => {
 });
 
 // 案件編集ページ(保存)
-//───────────────────────────────────
 app.post('/manager/job/:id/edit', async (req, res) => {
     const { id } = req.params;
     const { 案件名, 略称, スタッフ, 開始日, 終了日 } = req.body;
 
     try {
+        // 略称の検証
+        const isValidAbbreviation = /^[a-zA-Z0-9_]+$/.test(略称);
+        if (!isValidAbbreviation) {
+            console.error(`Invalid abbreviation: ${略称}`);
+            return res.render('result', {
+                title: 'エラー',
+                message: '略称が無効です。英数字とアンダースコアのみ使用できます。',
+                backLink: `/manager/job/${id}/edit`
+            });
+        }
+
+        // データベース更新処理
         await Job.findByIdAndUpdate(id, {
             案件名,
             略称,
@@ -411,9 +422,14 @@ app.post('/manager/job/:id/edit', async (req, res) => {
         res.redirect('/manager');
     } catch (err) {
         console.error('Error updating job:', err);
-        res.status(500).send('案件の更新に失敗しました');
+        res.status(500).render('result', {
+            title: 'エラー',
+            message: '案件の更新中にエラーが発生しました。',
+            backLink: `/manager/job/${id}/edit`
+        });
     }
 });
+
 
 // 管理者専用ページ (/admin)
 //───────────────────────────────────
