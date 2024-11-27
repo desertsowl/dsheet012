@@ -16,12 +16,16 @@ const bcrypt = require('bcrypt');
 const expressLayouts = require('express-ejs-layouts');
 const cookieParser = require('cookie-parser'); // Cookieパーサーを追加
 const crypto = require('crypto'); // セッションID生成用
+const multer = require('multer');
+const csvParser = require('csv-parser');
 
 require('dotenv').config();
 if (!process.env.SECRET_KEY) {
     console.error('SECRET_KEY is not defined in .env file');
     process.exit(1); // 環境変数がない場合はアプリを終了
 }
+// ファイルアップロード設定
+const upload = multer({ dest: 'csv/' });
 
 const app = express();
 const PORT = 5000;
@@ -229,23 +233,111 @@ const collectionExists = async (database, collectionName) => {
     }
 };
 
+// 機器データ登録ページ
+app.get('/manager/device/:dbName_device/device_import', (req, res) => {
+    const { dbName_device } = req.params;
+
+    // 略称の検証
+    if (!/^[a-zA-Z0-9_]+$/.test(dbName_device)) {
+        return res.render('result', {
+            title: 'エラー',
+            message: '略称が無効です。英数字とアンダースコアのみ使用できます。',
+            backLink: `/manager/info/${dbName_device}`
+        });
+    }
+
+    res.render('device_import', {
+        title: '機器データ登録',
+        dbName_device
+    });
+});
+
+// ファイルアップロード処理
+app.post('/manager/device/:dbName_device/device_import', upload.single('csvfile'), async (req, res) => {
+    const { dbName_device } = req.params;
+    const filePath = req.file.path;
+
+    // 略称の検証
+    if (!/^[a-zA-Z0-9_]+$/.test(dbName_device)) {
+        fs.unlinkSync(filePath); // 不正な略称の場合はアップロードファイルを削除
+        return res.render('result', {
+            title: 'エラー',
+            message: '略称が無効です。英数字とアンダースコアのみ使用できます。',
+            backLink: `/manager/info/${dbName_device}`
+        });
+    }
+
+    const dbName = 'device'; // 固定データベース
+	const collectionName = dbName_device;
+
+    try {
+        const database = mongoose.connection.useDb(dbName);
+        const devicesCollection = database.collection(collectionName);
+
+        // CSVファイルをパースしてデータを登録
+        let records = [];
+        let isHeader = true;
+        let fieldNames = [];
+
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csvParser())
+                .on('data', (row) => {
+                    if (isHeader) {
+                        fieldNames = Object.keys(row); // 最初の行をフィールド名として保存
+                        isHeader = false;
+                    }
+                    records.push(row);
+                })
+                .on('end', async () => {
+                    try {
+                        // コレクションにデータを挿入
+                        const result = await devicesCollection.insertMany(records);
+                        resolve(result);
+                    } catch (err) {
+                        reject(err);
+                    }
+                })
+                .on('error', (err) => {
+                    reject(err);
+                });
+        });
+
+        // アップロード完了後に一時ファイルを削除
+        fs.unlinkSync(filePath);
+
+        // 登録完了ページを表示
+        res.render('result', {
+            title: '登録完了',
+            message: `${records.length}件のデータを登録しました。`,
+            backLink: `/manager/info/${dbName_device}`
+        });
+    } catch (err) {
+        console.error('Error during CSV import:', err);
+        fs.unlinkSync(filePath); // エラーが発生した場合も一時ファイルを削除
+        res.render('result', {
+            title: 'エラー',
+            message: `データ登録中にエラーが発生しました。詳細: ${err.message}`,
+            backLink: `/manager/info/${dbName_device}`
+        });
+    }
+});
+
 // 機器コレクション読出
 //───────────────────────────────────
 app.get('/manager/device/:dbName_device/read', async (req, res) => {
     const { dbName_device } = req.params;
     const dbName = 'device'; // 固定データベース名
-    const devicesCollectionName = dbName_device; // コレクション名はリクエストからそのまま使用
+    const devicesCollectionName = dbName_device; // コレクション名はリクエストそのまま
     const page = parseInt(req.query.page) || 1;
-    const limit = 10; // 1ページあたりの表示件数
+    const limit = 10;
 
     try {
-        // コレクション名の検証（英数字とアンダースコアのみ許可）
-        const isValidCollectionName = /^[a-zA-Z0-9_]+$/.test(devicesCollectionName);
-        if (!isValidCollectionName) {
-            console.error(`Invalid collection name: ${devicesCollectionName}`);
+        // コレクション名の検証
+        if (!/^[a-zA-Z0-9_]+$/.test(devicesCollectionName)) {
             return res.render('result', {
                 title: 'エラー',
-                message: 'コレクション名が無効です。英数字とアンダースコアのみ使用できます。',
+                message: 'コレクション名が無効です。',
                 backLink: '/manager'
             });
         }
@@ -263,44 +355,27 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
         const devicesCollection = database.collection(devicesCollectionName);
 
         // ドキュメントの総数を確認
-        const totalDevices = await devicesCollection.countDocuments();
+        const totalDocuments = await devicesCollection.countDocuments();
+        const lastPage = Math.ceil(totalDocuments / limit);
+        const hasPreviousPage = page > 1;
+        const hasNextPage = page < lastPage;
 
-        if (totalDevices === 0) {
-            // ドキュメントが存在しない場合の処理
-            return res.render('device_list', {
-                title: `${devicesCollectionName} のデバイス一覧`,
-                devices: [],
-                currentPage: page,
-                lastPage: 1,
-                hasPreviousPage: false,
-                hasNextPage: false,
-                previousPage: null,
-                nextPage: null,
-                noDataMessage: '機器データが登録されていません。登録しますか？',
-                importLink: `/manager/device/${dbName_device}/device_import`
-            });
-        }
-
-        // ページング用のデータ取得
-        const devices = await devicesCollection
+        // データ取得（ページング処理）
+        const documents = await devicesCollection
             .find()
             .skip((page - 1) * limit)
             .limit(limit)
             .toArray();
 
-        const lastPage = Math.ceil(totalDevices / limit);
-
         res.render('device_list', {
             title: `${devicesCollectionName} のデバイス一覧`,
-            devices,
+            documents, // documents をテンプレートに渡す
             currentPage: page,
             lastPage,
-            hasPreviousPage: page > 1,
-            hasNextPage: page < lastPage,
+            hasPreviousPage,
+            hasNextPage,
             previousPage: page - 1,
-            nextPage: page + 1,
-            noDataMessage: null,
-            importLink: null
+            nextPage: page + 1
         });
     } catch (err) {
         console.error(`Error handling collection for '${devicesCollectionName}' in '${dbName}':`, err);

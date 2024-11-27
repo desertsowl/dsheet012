@@ -1,35 +1,64 @@
-<h1><%= title %></h1>
+<div class="container">
+    <h2><%= title %></h2>
 
-<% if (noDataMessage) { %>
-    <p><%= noDataMessage %></p>
-    <a href="<%= importLink %>">機器データ登録</a>
-<% } else { %>
-    <table>
-        <thead>
-            <tr>
-                <th>デバイス名</th>
-                <th>型番</th>
-                <th>登録日</th>
-            </tr>
-        </thead>
-        <tbody>
-            <% devices.forEach(device => { %>
+    <% if (documents.length === 0) { %>
+        <p>データがありません。</p>
+    <% } else { %>
+        <table class="table table-bordered">
+            <thead>
                 <tr>
-                    <td><%= device.デバイス名 %></td>
-                    <td><%= device.型番 %></td>
-                    <td><%= device.登録日.toLocaleDateString() %></td>
+                    <% Object.keys(documents[0]).forEach(field => { %>
+                        <% if (field !== '_id') { %> <!-- _id を除外 -->
+                            <th><%= field %></th>
+                        <% } %>
+                    <% }) %>
                 </tr>
-            <% }) %>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <% documents.forEach(document => { %>
+                    <tr>
+                        <% Object.keys(document).forEach(field => { %>
+                            <% if (field !== '_id') { %> <!-- _id を除外 -->
+                                <td><%= document[field] %></td>
+                            <% } %>
+                        <% }) %>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
 
-    <div>
-        <% if (hasPreviousPage) { %>
-            <a href="?page=<%= previousPage %>">前へ</a>
-        <% } %>
-        <span>ページ <%= currentPage %> / <%= lastPage %></span>
-        <% if (hasNextPage) { %>
-            <a href="?page=<%= nextPage %>">次へ</a>
-        <% } %>
-    </div>
-<% } %>
+        <!-- ページネーション -->
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                <% const maxPageButtons = 5; %>
+                <% const startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2)); %>
+                <% const endPage = Math.min(lastPage, startPage + maxPageButtons - 1); %>
+
+                <!-- 最初のページ -->
+                <% if (startPage > 1) { %>
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1" aria-label="First">最初</a>
+                    </li>
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                <% } %>
+
+                <!-- ページ番号の表示 -->
+                <% for (let i = startPage; i <= endPage; i++) { %>
+                    <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                        <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                    </li>
+                <% } %>
+
+                <!-- 最後のページ -->
+                <% if (endPage < lastPage) { %>
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page=<%= lastPage %>" aria-label="Last">最後</a>
+                    </li>
+                <% } %>
+            </ul>
+        </nav>
+    <% } %>
+
+    <a href="/manager" class="btn btn-secondary mt-3">戻る</a>
+</div>

@@ -1,7 +1,7 @@
 <h1><%= title %></h1>
 
-<form action="/manager/device/<%= collection %>/import" method="POST" enctype="multipart/form-data">
-    <label for="csvFile">CSVファイルを選択:</label>
-    <input type="file" name="csvFile" id="csvFile" accept=".csv" required />
+<form action="/manager/device/<%= dbName_device %>/device_import" method="POST" enctype="multipart/form-data">
+    <label for="csvfile">CSVファイルを選択してください:</label>
+    <input type="file" id="csvfile" name="csvfile" accept=".csv" required>
     <button type="submit">アップロード</button>
 </form>
