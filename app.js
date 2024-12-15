@@ -31,6 +31,7 @@ const app = express();
 const PORT = 5000;
 const PROJECT_ROOT = path.join(__dirname);
 
+const Job = require('./models/Jobs');
 
 //───────────────────────────────────
 // 2. データベース設定
@@ -58,20 +59,6 @@ const UserSchema = new mongoose.Schema({
     unique: Number
 });
 const User = staffDb.model('User', UserSchema, 'everyone');
-
-// Jobモデルの定義（スキーマ名を変更）
-//───────────────────────────────────
-const jobDb = mongoose.connection.useDb('job', { useCache: true });
-const JobSchema = new mongoose.Schema({
-    案件名: { type: String, required: true, unique: true },
-    略称: { type: String, required: true, unique: true },
-    スタッフ: { type: String, required: true },
-    開始日: Date,
-    終了日: Date,
-    作成日: { type: Date, default: Date.now }
-});
-const Job = jobDb.model('Job', JobSchema, 'job');
-
 
 //───────────────────────────────────
 // 3. ミドルウェア設定
@@ -399,7 +386,7 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
 app.get('/manager/job/:id/info', async (req, res) => {
     const { id } = req.params;
     try {
-        const job = await Job.findById(id);
+        const job = await Job.findById(id); // models/Jobを利用
         res.render('info', { title: '案件資料', job });
     } catch (err) {
         console.error('Error fetching job info:', err);
@@ -443,7 +430,7 @@ app.post('/manager/job/new', async (req, res) => {
             開始日: 開始日 ? new Date(開始日) : null,
             終了日: 終了日 ? new Date(終了日) : null
         });
-        await newJob.save();
+        await newJob.save(); // models/Jobを利用
         res.redirect('/manager/job/list');
     } catch (err) {
         console.error('Error saving job:', err);
@@ -470,12 +457,12 @@ app.get('/manager/job/:id/edit', async (req, res) => {
 });
 
 // 案件編集ページ(保存)
+//───────────────────────────────────
 app.post('/manager/job/:id/edit', async (req, res) => {
     const { id } = req.params;
     const { 案件名, 略称, スタッフ, 開始日, 終了日 } = req.body;
 
     try {
-        // 略称の検証
         const isValidAbbreviation = /^[a-zA-Z0-9_]+$/.test(略称);
         if (!isValidAbbreviation) {
             console.error(`Invalid abbreviation: ${略称}`);
@@ -486,14 +473,13 @@ app.post('/manager/job/:id/edit', async (req, res) => {
             });
         }
 
-        // データベース更新処理
         await Job.findByIdAndUpdate(id, {
             案件名,
             略称,
             スタッフ,
             開始日: 開始日 ? new Date(開始日) : null,
             終了日: 終了日 ? new Date(終了日) : null
-        });
+        }); // models/Jobを利用
         res.redirect('/manager');
     } catch (err) {
         console.error('Error updating job:', err);
@@ -516,7 +502,7 @@ app.get('/admin', authorize([8]), (req, res) => {
 //───────────────────────────────────
 app.get('/manager', authorize([8, 4]), async (req, res) => {
     try {
-        const jobs = await Job.find();
+        const jobs = await Job.find(); // models/Jobを利用
         res.render('manager', { title: '監督者ページ', jobs });
     } catch (err) {
         console.error('Error fetching jobs:', err);

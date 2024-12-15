@@ -1,0 +1,39 @@
+<div class="container">
+    <h1 class="mb-4"><%= title %></h1>
+
+    <!-- チェックシート一覧表示 -->
+    <% if (documents.length === 0) { %>
+        <p>まだチェックシートの内容はありません。</p>
+    <% } else { %>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <% Object.keys(documents[0]).forEach(field => { %>
+                        <% if (field !== '_id') { %> <!-- _id を除外 -->
+                            <th><%= field %></th>
+                        <% } %>
+                    <% }) %>
+                </tr>
+            </thead>
+            <tbody>
+                <% documents.forEach(document => { %>
+                    <tr>
+                        <% Object.keys(document).forEach(field => { %>
+                            <% if (field !== '_id') { %>
+                                <td><%= document[field] %></td>
+                            <% } %>
+                        <% }) %>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    <% } %>
+
+    <!-- ボタン表示 -->
+    <div class="mt-3">
+        <a href="/manager/sheet/<%= id_sheet %>/edit" class="btn btn-outline-primary me-2">
+            編集
+        </a>
+        <a href="/manager" class="btn btn-secondary">戻る</a>
+    </div>
+</div>
