@@ -640,54 +640,6 @@ app.get('/logout', (req, res) => {
 // 5-2. データベース操作
 //──────────────────────────────
 
-// チェックシート編集ページ
-//──────────────────────────────
-app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
-    const { id_sheet } = req.params;
-    const dbName = 'sheet'; // データベース名
-    const collectionName = id_sheet; // コレクション名（略称 + _sheet）
-
-    try {
-        // データベース接続
-        const database = mongoose.connection.useDb(dbName);
-
-        // コレクションの存在確認
-        const collections = await database.db.listCollections({ name: collectionName }).toArray();
-        if (collections.length === 0) {
-            console.log(`Collection '${collectionName}' does not exist. Creating it.`);
-            await database.createCollection(collectionName); // コレクション作成
-        }
-
-        // モデルを取得
-        const Sheet = SheetModel(dbName);
-
-        // コレクションの内容を取得
-        const documents = await Sheet.find().lean();
-
-        if (documents.length === 0) {
-            return res.render('result', {
-                title: 'チェックシート編集',
-                message: 'まだチェックシートの内容はありません。',
-                backLink: `/manager/job/${id_sheet}/info`
-            });
-        }
-
-        // チェックシート編集画面をレンダリング
-        res.render('sheet_edit', {
-            title: `チェックシート編集 - ${id_sheet}`,
-            documents,
-            id_sheet
-        });
-    } catch (err) {
-        console.error(`Error handling collection for '${collectionName}' in '${dbName}':`, err);
-        res.render('result', {
-            title: 'エラー',
-            message: `コレクション '${collectionName}' の処理中にエラーが発生しました。詳細: ${err.message}`,
-            backLink: '/manager'
-        });
-    }
-});
-
 // DB作成
 //───────────────────────────────────
 app.get('/admin/:db/new', async (req, res) => {
@@ -814,11 +766,6 @@ app.get('/manager/:db/:collection/read', async (req, res) => {
         return renderMessage(res, 'エラー', 'エラー: 許可されていないコレクションです5', `/manager/${db}/list`);
     }
 
-  // プレースホルダの値を検証して不正な値を除外
-    if (!/^[a-zA-Z0-9_]+$/.test(db) || !/^[a-zA-Z0-9_]+$/.test(collection)) {
-        return res.status(400).send('無効なデータベースまたはコレクション名です');
-    }
-	
     try {
         const database = mongoose.connection.useDb(config.db);
         const documents = await database.collection(collection).find().toArray();
@@ -832,6 +779,53 @@ app.get('/manager/:db/:collection/read', async (req, res) => {
     } catch (err) {
         console.error('Error fetching documents:', err);
         renderMessage(res, 'エラー', `ドキュメント一覧の取得に失敗しました。詳細: ${err.message}`, `/manager/${db}/list`);
+    }
+});
+
+// チェックシート編集ページ
+app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
+    const { id_sheet } = req.params;
+    const dbName = 'sheet'; // データベース名
+    const collectionName = id_sheet; // コレクション名（略称 + _sheet）
+
+    try {
+        // データベース接続
+        const database = mongoose.connection.useDb(dbName);
+
+        // コレクションの存在確認
+        const collections = await database.db.listCollections({ name: collectionName }).toArray();
+        if (collections.length === 0) {
+            console.log(`Collection '${collectionName}' does not exist. Creating it.`);
+            await database.createCollection(collectionName); // コレクション作成
+        }
+
+        // モデルを取得
+        const Sheet = SheetModel(dbName);
+
+        // コレクションの内容を取得
+        const documents = await Sheet.find().lean();
+
+        if (documents.length === 0) {
+            return res.render('result', {
+                title: 'チェックシート編集',
+                message: 'まだチェックシートの内容はありません。',
+                backLink: `/manager/job/${id_sheet}/info`
+            });
+        }
+
+        // チェックシート編集画面をレンダリング
+        res.render('sheet_edit', {
+            title: `チェックシート編集 - ${id_sheet}`,
+            documents,
+            id_sheet
+        });
+    } catch (err) {
+        console.error(`Error handling collection for '${collectionName}' in '${dbName}':`, err);
+        res.render('result', {
+            title: 'エラー',
+            message: `コレクション '${collectionName}' の処理中にエラーが発生しました。詳細: ${err.message}`,
+            backLink: '/manager'
+        });
     }
 });
 
