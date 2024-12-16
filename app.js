@@ -31,7 +31,7 @@ const app = express();
 const PORT = 5000;
 const PROJECT_ROOT = path.join(__dirname);
 
-const Job = require('./models/Jobs');
+const Job = require('./models/Job');
 
 //───────────────────────────────────
 // 2. データベース設定
