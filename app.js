@@ -326,7 +326,7 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
             return res.render('result', {
                 title: 'エラー',
                 message: 'コレクション名が無効です。',
-                backLink: '/manager'
+                backLink: req.headers.referer || `/manager/job/${id_sheet}/info` // リファラーを渡す
             });
         }
 
@@ -363,14 +363,15 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
             hasPreviousPage,
             hasNextPage,
             previousPage: page - 1,
-            nextPage: page + 1
+            nextPage: page + 1,
+			backLink: req.headers.referer || `/manager/job/${id_sheet}/info` // リファラーを渡す
         });
     } catch (err) {
         console.error(`Error handling collection for '${devicesCollectionName}' in '${dbName}':`, err);
         res.render('result', {
             title: 'エラー',
             message: `コレクション '${devicesCollectionName}' の処理中にエラーが発生しました。詳細: ${err.message}`,
-            backLink: '/manager'
+            backLink: req.headers.referer || `/manager/job/${id_sheet}/info`
         });
     }
 });
@@ -668,7 +669,7 @@ app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
             return res.render('result', {
                 title: 'チェックシート編集',
                 message: 'まだチェックシートの内容はありません。',
-                backLink: `/manager/job/${id_sheet}/info`
+                backLink: req.headers.referer || `/manager/job/${id_sheet}/info` // リファラーを渡す
             });
         }
 
@@ -676,14 +677,16 @@ app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
         res.render('sheet_edit', {
             title: `チェックシート編集 - ${id_sheet}`,
             documents,
-            id_sheet
+            id_sheet,
+			backLink: req.headers.referer || `/manager/job/${id_sheet}/info`
         });
     } catch (err) {
         console.error(`Error handling collection for '${collectionName}' in '${dbName}':`, err);
         res.render('result', {
             title: 'エラー',
             message: `コレクション '${collectionName}' の処理中にエラーが発生しました。詳細: ${err.message}`,
-            backLink: '/manager'
+            backLink: req.headers.referer || `/manager/job/${id_sheet}/info`
+
         });
     }
 });
