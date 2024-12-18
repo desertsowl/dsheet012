@@ -29,6 +29,6 @@
             <input type="date" id="終了日" name="終了日" class="form-control" value="<%= job.終了日 ? job.終了日.toISOString().substring(0, 10) : '' %>">
         </div>
         <button type="submit" class="btn btn-primary">保存</button>
-        <a href="/manager" class="btn btn-secondary">戻る</a>
+        <a href="<%= backLink %>" class="btn btn-secondary">戻る</a>
     </form>
 </div>

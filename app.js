@@ -451,7 +451,7 @@ app.get('/manager/job/:id/edit', async (req, res) => {
         const staffCollections = collections.map(col => col.name);
         staffCollections.unshift('everyone');
 
-        res.render('edit', { title: '案件編集', job, staffCollections });
+        res.render('edit', { title: '案件編集', job, staffCollections ,backLink: `/manager/job/${id}/info` });
     } catch (err) {
         console.error('Error fetching job or staff collections:', err);
         res.status(500).send('案件内容の取得に失敗しました');
