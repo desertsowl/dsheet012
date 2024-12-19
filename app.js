@@ -645,48 +645,39 @@ app.get('/logout', (req, res) => {
 //──────────────────────────────
 app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
     const { id_sheet } = req.params;
-    const dbName = 'sheet'; // データベース名
-    const collectionName = id_sheet; // コレクション名（略称 + _sheet）
+    const dbName = 'sheet';
+    const collectionName = id_sheet;
 
     try {
-        // データベース接続
         const database = mongoose.connection.useDb(dbName);
 
-        // コレクションの存在確認
+        // コレクションが存在しない場合に作成
         const collections = await database.db.listCollections({ name: collectionName }).toArray();
         if (collections.length === 0) {
             console.log(`Collection '${collectionName}' does not exist. Creating it.`);
-            await database.createCollection(collectionName); // コレクション作成
+            await database.createCollection(collectionName);
         }
 
-        // モデルを取得
+        // モデル取得
         const Sheet = SheetModel(dbName);
-
-        // コレクションの内容を取得
         const documents = await Sheet.find().lean();
 
-        if (documents.length === 0) {
-            return res.render('result', {
-                title: 'チェックシート編集',
-                message: 'まだチェックシートの内容はありません。',
-                backLink: req.headers.referer || `/manager/job/${id_sheet}/info` // リファラーを渡す
-            });
-        }
+        // データが存在しない場合、isEmptyフラグを渡す
+        const isEmpty = documents.length === 0;
 
-        // チェックシート編集画面をレンダリング
-        res.render('sheet_edit', {
-            title: `チェックシート編集 - ${id_sheet}`,
+        res.render('sheet_read', {
+            title: `チェックシート - ${id_sheet}`,
             documents,
             id_sheet,
-			backLink: req.headers.referer || `/manager/job/${id_sheet}/info`
+            isEmpty, // データが空かどうかのフラグ
+            backLink: req.headers.referer || `/manager/job/${id_sheet}/info`
         });
     } catch (err) {
-        console.error(`Error handling collection for '${collectionName}' in '${dbName}':`, err);
+        console.error('Error:', err);
         res.render('result', {
             title: 'エラー',
-            message: `コレクション '${collectionName}' の処理中にエラーが発生しました。詳細: ${err.message}`,
-            backLink: req.headers.referer || `/manager/job/${id_sheet}/info`
-
+            message: `データ取得中にエラーが発生しました: ${err.message}`,
+            backLink: `/manager/job/${id_sheet}/info`
         });
     }
 });

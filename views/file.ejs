@@ -16,9 +16,9 @@
         // モダンな方法でクリップボードにコピー
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(sourceCode)
-                .then(() => alert('ソースコードをコピーしました！'))
+                .then(() => alert('コピー成功！'))
                 .catch(err => {
-                    console.error('クリップボードへのコピーに失敗:', err);
+                    console.error('コピー失敗:', err);
                     fallbackCopy(sourceCodeElement);
                 });
         } else {
@@ -38,10 +38,10 @@
 
         try {
             document.execCommand('copy');
-            alert('ソースコードをコピーしました！ (フォールバック)');
+            alert('コピー成功！ (フォールバック)');
         } catch (err) {
-            console.error('フォールバックコピーに失敗:', err);
-            alert('コピーに失敗しました。再試行してください。');
+            console.error('コピー失敗(フォールバック)', err);
+            alert('コピー失敗。再試行してください。');
         }
 
         document.body.removeChild(textArea);
