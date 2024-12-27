@@ -1,64 +1,49 @@
-<%- include('./head') %>
-<body>
-    <%- include('./header') %>
+<div class="container">
+    <h1 class="mb-4"><%= title %></h1>
 
-    <main class="container my-4">
-        <h1 class="mb-4"><%= title %></h1>
+    <form action="/manager/sheet/<%= id_sheet %>/save" method="post" enctype="multipart/form-data">
+        <% if (document) { %>
+            <input type="hidden" name="id" value="<%= document._id %>"> <!-- ObjectIdをフォームで送信 -->
+        <% } %>
 
-        <!-- フォーム -->
-        <form action="/manager/sheet/<%= id_sheet %>/save" method="POST" enctype="multipart/form-data">
-            <div class="mb-3">
-                <label for="itemNumber" class="form-label">項番</label>
-                <div class="input-group">
-                    <input type="number" id="itemNumber" name="itemNumber" class="form-control" value="<%= nextItemNumber %>" min="1" required>
-                    <button type="button" class="btn btn-outline-secondary" id="incrementButton">上</button>
-                    <button type="button" class="btn btn-outline-secondary" id="decrementButton">下</button>
-                </div>
-            </div>
+        <!-- 項番 -->
+        <div class="mb-3">
+            <label for="項番" class="form-label">項番</label>
+            <input type="number" name="item_number" id="項番" value="<%= document ? document.項番 : nextItemNumber %>" class="form-control" readonly>
+        </div>
 
-            <div class="mb-3">
-                <label for="itemName" class="form-label">項目</label>
-                <input type="text" id="itemName" name="itemName" class="form-control" placeholder="項目名を入力" required>
-            </div>
+        <!-- 項目 -->
+        <div class="mb-3">
+            <label for="項目" class="form-label">項目</label>
+            <input type="text" name="item_name" id="項目" value="<%= document ? document.項目 : '' %>" class="form-control" required>
+        </div>
 
-            <div class="mb-3">
-                <label for="workContent" class="form-label">内容</label>
-                <textarea id="workContent" name="workContent" class="form-control" rows="3" placeholder="作業内容を入力" required></textarea>
-            </div>
+        <!-- 内容 -->
+        <div class="mb-3">
+            <label for="内容" class="form-label">内容</label>
+            <textarea name="item_content" id="内容" rows="3" class="form-control" required><%= document ? document.内容 : '' %></textarea>
+        </div>
 
-            <div class="mb-3">
-                <label for="details" class="form-label">詳細</label>
-                <textarea id="details" name="details" class="form-control" rows="3" placeholder="パラメータなどの詳細を入力" required></textarea>
-            </div>
+        <!-- 詳細 -->
+        <div class="mb-3">
+            <label for="詳細" class="form-label">詳細</label>
+            <textarea name="item_details" id="詳細" rows="3" class="form-control" required><%= document ? document.詳細 : '' %></textarea>
+        </div>
 
-            <div class="mb-3">
-                <label for="image" class="form-label">画像</label>
-                <input type="file" id="image" name="image" class="form-control" accept="image/*">
-            </div>
+        <!-- 画像 -->
+        <div class="mb-3">
+            <label for="画像" class="form-label">画像</label>
+            <input type="file" name="item_image" id="画像" class="form-control">
+            <% if (document && document.画像) { %>
+                <p>現在の画像: <a href="/<%= document.画像 %>" target="_blank">表示</a></p>
+            <% } %>
+        </div>
 
-            <button type="submit" class="btn btn-primary">保存</button>
+        <!-- ボタン -->
+        <div class="d-flex gap-2">
             <a href="/manager/sheet/<%= id_sheet %>/read" class="btn btn-secondary">戻る</a>
-        </form>
-    </main>
+            <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+    </form>
+</div>
 
-    <%- include('./footer') %>
-
-    <!-- JavaScript -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const incrementButton = document.getElementById("incrementButton");
-            const decrementButton = document.getElementById("decrementButton");
-            const itemNumberInput = document.getElementById("itemNumber");
-
-            incrementButton.addEventListener("click", function () {
-                itemNumberInput.value = parseInt(itemNumberInput.value) + 1 || 1;
-            });
-
-            decrementButton.addEventListener("click", function () {
-                const currentValue = parseInt(itemNumberInput.value) || 1;
-                itemNumberInput.value = currentValue > 1 ? currentValue - 1 : 1;
-            });
-        });
-    </script>
-</body>
-</html>

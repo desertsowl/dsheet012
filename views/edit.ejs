@@ -1,7 +1,8 @@
 <div class="container">
     <h1 class="d-flex align-items-center">
-        <i class="bi bi-pencil me-2" style="color: #3399cc;"></i> <!-- アイコンを追加 -->
+        <i class="bi bi-pencil me-2" style="color: #3399cc;"></i>
         案件編集
+		<a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-3 fs-2" style="color: #0d6efe;"></a>
     </h1>
     <form action="/manager/job/<%= job._id %>/edit" method="POST">
         <div class="mb-3">
@@ -10,7 +11,7 @@
         </div>
         <div class="mb-3">
             <label for="略称" class="form-label">略称 (半角英数字と_記号のみ使用可能)</label>
-            <input type="text" id="略称" name="略称" class="form-control" value="<%= job.略称 %>" required>
+            <input type="text" id="略称" name="略称" class="form-control" value="<%= job._id %>" required>
         </div>
         <div class="mb-3">
             <label for="スタッフ" class="form-label">スタッフ</label>
@@ -28,7 +29,7 @@
             <label for="終了日" class="form-label">終了日</label>
             <input type="date" id="終了日" name="終了日" class="form-control" value="<%= job.終了日 ? job.終了日.toISOString().substring(0, 10) : '' %>">
         </div>
-        <button type="submit" class="btn btn-primary">保存</button>
         <a href="<%= backLink %>" class="btn btn-secondary">戻る</a>
+        <button type="submit" class="btn btn-primary">保存</button>
     </form>
 </div>

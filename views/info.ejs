@@ -1,6 +1,7 @@
 <div class="container">
-    <h1 class="headline">
+    <h1 class="d-flex align-items-center headline">
         案件資料
+		<a href="/manager/" class="bi bi-arrow-left-circle-fill ms-3 fs-2" style="color: #0d6efe;"></a>
     </h1>
     
     <h2 class="mt-4">
@@ -12,7 +13,7 @@
     <div style="margin-left:1em;">
         <ul class="list-group list-group-flush">
             <li class="list-group-item">案件名: <%= job.案件名 %></li>
-            <li class="list-group-item">略称: <%= job.略称 %></li>
+            <li class="list-group-item">略称: <%= job._id %></li>
             <li class="list-group-item">スタッフ: <%= job.スタッフ %></li>
             <li class="list-group-item">開始日: <%= job.開始日 ? job.開始日.toISOString().substring(0, 10) : '未設定' %></li>
             <li class="list-group-item">終了日: <%= job.終了日 ? job.終了日.toISOString().substring(0, 10) : '未設定' %></li>
@@ -22,12 +23,12 @@
     <h2 class="mt-4">
         <i class="bi bi-book me-2" style="color: #3399cc;"></i>
         機器台帳
-        <a href="/manager/device/<%= job.略称 %>_device/read" class="bi bi-pencil-fill ms-2 fs-5" style="color: #0d6efe;"></a>
+        <a href="/manager/device/<%= job._id %>_device/read" class="bi bi-pencil-fill ms-2 fs-5" style="color: #0d6efe;"></a>
     </h2>
     
     <h2 class="mt-4">
         <i class="bi bi-check2-square me-2" style="color: #3399cc;"></i>
         チェックシート
-        <a href="/manager/sheet/<%= job.略称 %>_sheet/read" class="bi bi-pencil-fill ms-2 fs-5" style="color: #0d6efe;"></a>
+        <a href="/manager/sheet/<%= job._id %>_sheet/read" class="bi bi-pencil-fill ms-2 fs-5" style="color: #0d6efe;"></a>
     </h2>
 </div>

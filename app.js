@@ -25,7 +25,8 @@ if (!process.env.SECRET_KEY) {
     process.exit(1); // 環境変数がない場合はアプリを終了
 }
 // ファイルアップロード設定
-const upload = multer({ dest: 'csv/' });
+const uploadImg = multer({ dest: 'public/img/' });
+const uploadCsv = multer({ dest: 'csv/' });
 
 const app = express();
 const PORT = 5000;
@@ -69,6 +70,7 @@ const User = staffDb.model('User', UserSchema, 'everyone');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 app.use(expressLayouts);
 app.set('layout', 'layouts/base');
 app.set('view engine', 'ejs');
@@ -241,7 +243,7 @@ app.get('/manager/device/:dbName_device/device_import', (req, res) => {
 });
 
 // ファイルアップロード処理
-app.post('/manager/device/:dbName_device/device_import', upload.single('csvfile'), async (req, res) => {
+app.post('/manager/device/:dbName_device/device_import', uploadCsv.single('csvfile'), async (req, res) => {
     const { dbName_device } = req.params;
     const filePath = req.file.path;
 
@@ -256,7 +258,7 @@ app.post('/manager/device/:dbName_device/device_import', upload.single('csvfile'
     }
 
     const dbName = 'device'; // 固定データベース
-	const collectionName = dbName_device;
+    const collectionName = dbName_device;
 
     try {
         const database = mongoose.connection.useDb(dbName);
@@ -467,7 +469,6 @@ app.post('/manager/job/:id/edit', async (req, res) => {
     try {
         const isValidAbbreviation = /^[a-zA-Z0-9_]+$/.test(略称);
         if (!isValidAbbreviation) {
-            console.error(`Invalid abbreviation: ${略称}`);
             return res.render('result', {
                 title: 'エラー',
                 message: '略称が無効です。英数字とアンダースコアのみ使用できます。',
@@ -475,24 +476,26 @@ app.post('/manager/job/:id/edit', async (req, res) => {
             });
         }
 
+        // データ更新
         await Job.findByIdAndUpdate(id, {
             案件名,
             略称,
             スタッフ,
             開始日: 開始日 ? new Date(開始日) : null,
             終了日: 終了日 ? new Date(終了日) : null
-        }); // models/Jobを利用
-        res.redirect('/manager');
+        });
+
+        // 保存完了後、指定されたURLにリダイレクト
+        res.redirect(`http://132.226.0.120:5000/manager/job/${id}/info`);
     } catch (err) {
         console.error('Error updating job:', err);
-        res.status(500).render('result', {
+        res.render('result', {
             title: 'エラー',
             message: '案件の更新中にエラーが発生しました。',
             backLink: `/manager/job/${id}/edit`
         });
     }
 });
-
 
 // 管理者専用ページ (/admin)
 //───────────────────────────────────
@@ -641,7 +644,7 @@ app.get('/logout', (req, res) => {
 // 5-2. データベース操作
 //──────────────────────────────
 
-// チェックシート編集ページ
+// チェックシート読込ページ
 //──────────────────────────────
 app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
     const { id_sheet } = req.params;
@@ -678,6 +681,83 @@ app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
             title: 'エラー',
             message: `データ取得中にエラーが発生しました: ${err.message}`,
             backLink: `/manager/job/${id_sheet}/info`
+        });
+    }
+});
+
+// チェックシート編集ページ
+//──────────────────────────────
+app.get('/manager/sheet/:id_sheet/edit', async (req, res) => {
+    const { id_sheet } = req.params;
+    const { id } = req.query; // クエリでObjectIdを取得
+    const dbName = 'sheet';
+
+    try {
+        const Sheet = require('./models/Sheet')(dbName);
+
+        let document = null;
+
+        // 項番の指定がある場合、該当ドキュメントを取得
+        if (id) {
+            document = await Sheet.findById(id).lean();
+        }
+
+        // 次の項番を計算（既存データがない場合）
+        const nextItemNumber = document ? null : (await Sheet.countDocuments({})) + 1;
+
+        res.render('sheet_edit', {
+            title: id ? `編集: 項番 ${document.項番}` : `新規項目の追加`,
+            id_sheet,
+            document,
+            nextItemNumber, // 次の項番をテンプレートに渡す
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    } catch (err) {
+        console.error('Error loading edit page:', err);
+        res.render('result', {
+            title: 'エラー',
+            message: '編集ページを読み込めませんでした。',
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    }
+});
+
+
+// チェックシート編集ページ(保存)
+//──────────────────────────────
+app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async (req, res) => {
+    const { id_sheet } = req.params;
+    const { id, item_number, item_name, item_content, item_details } = req.body;
+    const item_image = req.file ? `img/${req.file.filename}` : '';
+
+    try {
+        const Sheet = require('./models/Sheet')('sheet');
+
+        if (id) {
+            await Sheet.findByIdAndUpdate(id, {
+                項番: item_number,
+                項目: item_name,
+                内容: item_content,
+                詳細: item_details,
+                ...(item_image && { 画像: item_image })
+            });
+        } else {
+            await Sheet.create({
+                項番: item_number,
+                項目: item_name,
+                内容: item_content,
+                詳細: item_details,
+                画像: item_image
+            });
+        }
+
+        res.redirect(`/manager/sheet/${id_sheet}/read`); // ObjectIdベースのリンク
+    } catch (err) {
+        console.error('Error saving sheet data:', err.message);
+        res.render('result', {
+            title: 'エラー',
+            message: 'データの保存に失敗しました。',
+            backLink: `/manager/sheet/${id_sheet}/edit`
         });
     }
 });

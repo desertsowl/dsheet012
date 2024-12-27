@@ -1,5 +1,8 @@
 <div class="container">
-    <h2><%= title %></h2>
+    <h1>
+		<%= title %>
+		<a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-3 fs-2" style="color: #0d6efe;"></a>
+	</h1>
 
     <% if (documents.length === 0) { %>
         <p>データがありません。</p>
