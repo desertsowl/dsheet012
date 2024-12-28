@@ -648,39 +648,30 @@ app.get('/logout', (req, res) => {
 //──────────────────────────────
 app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
     const { id_sheet } = req.params;
-    const dbName = 'sheet';
-    const collectionName = id_sheet;
 
     try {
-        const database = mongoose.connection.useDb(dbName);
+        const database = mongoose.connection.useDb('sheet');
+        const Sheet = require('./models/Sheet')(database);
 
-        // コレクションが存在しない場合に作成
-        const collections = await database.db.listCollections({ name: collectionName }).toArray();
-        if (collections.length === 0) {
-            console.log(`Collection '${collectionName}' does not exist. Creating it.`);
-            await database.createCollection(collectionName);
-        }
-
-        // モデル取得
-        const Sheet = SheetModel(dbName);
         const documents = await Sheet.find().lean();
-
-        // データが存在しない場合、isEmptyフラグを渡す
         const isEmpty = documents.length === 0;
 
         res.render('sheet_read', {
             title: `チェックシート - ${id_sheet}`,
             documents,
-            id_sheet,
-            isEmpty, // データが空かどうかのフラグ
-            backLink: req.headers.referer || `/manager/job/${id_sheet}/info`
+            id_sheet, // チェックシートID
+            isEmpty
         });
     } catch (err) {
-        console.error('Error:', err);
+        console.error('Error fetching sheet:', err);
+
+        // 案件IDを抽出するためにid_sheetから "_sheet" を除去
+        const jobId = id_sheet.replace(/_sheet$/, '');
+
         res.render('result', {
             title: 'エラー',
-            message: `データ取得中にエラーが発生しました: ${err.message}`,
-            backLink: `/manager/job/${id_sheet}/info`
+            message: 'チェックシートを読み込めませんでした。',
+            backLink: `/manager/job/${jobId}/info` // 正しい戻るリンクを指定
         });
     }
 });
