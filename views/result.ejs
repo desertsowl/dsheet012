@@ -1,5 +1,10 @@
 <div class="container">
-    <h1 class="mt-5">実行結果</h1>
+    <h1 class="mb-4"><%= title %></h1>
     <p><%= message %></p>
-    <a href="<%= backLink %>" class="btn btn-primary mt-3">戻る</a>
+    <div class="mt-3 d-flex gap-2">
+        <a href="<%= backLink %>" class="btn btn-secondary">戻る</a>
+        <% if (typeof addLink !== 'undefined') { %>
+            <a href="<%= addLink %>" class="btn btn-primary">登録</a>
+        <% } %>
+    </div>
 </div>

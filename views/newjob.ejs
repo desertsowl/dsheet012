@@ -1,15 +1,12 @@
 <div class="container">
-    <form action="/manager/job/new" method="POST" class="mb-3">
+    <h1>新規案件作成</h1>
+    <form action="/manager/job/new" method="post">
         <div class="mb-3">
-            <label for="案件名" class="form-label">案件名 (必須)</label>
+            <label for="案件名" class="form-label">案件名</label>
             <input type="text" id="案件名" name="案件名" class="form-control" required>
         </div>
         <div class="mb-3">
-            <label for="略称" class="form-label">略称 (必須)</label>
-            <input type="text" id="略称" name="略称" class="form-control" required>
-        </div>
-        <div class="mb-3">
-            <label for="スタッフ" class="form-label">スタッフ (必須)</label>
+            <label for="スタッフ" class="form-label">スタッフ</label>
             <select id="スタッフ" name="スタッフ" class="form-select" required>
                 <% staffCollections.forEach(collection => { %>
                     <option value="<%= collection %>"><%= collection %></option>
@@ -24,6 +21,6 @@
             <label for="終了日" class="form-label">終了日</label>
             <input type="date" id="終了日" name="終了日" class="form-control">
         </div>
-        <button type="submit" class="btn btn-success">案件を作成</button>
+        <button type="submit" class="btn btn-primary">保存</button>
     </form>
 </div>

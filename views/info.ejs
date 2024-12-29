@@ -13,7 +13,6 @@
     <div style="margin-left:1em;">
         <ul class="list-group list-group-flush">
             <li class="list-group-item">案件名: <%= job.案件名 %></li>
-            <li class="list-group-item">略称: <%= job._id %></li>
             <li class="list-group-item">スタッフ: <%= job.スタッフ %></li>
             <li class="list-group-item">開始日: <%= job.開始日 ? job.開始日.toISOString().substring(0, 10) : '未設定' %></li>
             <li class="list-group-item">終了日: <%= job.終了日 ? job.終了日.toISOString().substring(0, 10) : '未設定' %></li>
