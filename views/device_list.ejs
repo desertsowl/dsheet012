@@ -1,67 +1,63 @@
 <div class="container">
-    <h1>
-		<%= title %>
-		<a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
-	</h1>
+    <h1 class="mb-4"><%= title %></h1>
 
-    <% if (documents.length === 0) { %>
-        <p>データがありません。</p>
-    <% } else { %>
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <% Object.keys(documents[0]).forEach(field => { %>
-                        <% if (field !== '_id') { %> <!-- _id を除外 -->
-                            <th><%= field %></th>
-                        <% } %>
-                    <% }) %>
-                </tr>
-            </thead>
-            <tbody>
-                <% documents.forEach(document => { %>
+    <% if (documents.length > 0) { %>
+        <!-- データが存在する場合 -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
                     <tr>
-                        <% Object.keys(document).forEach(field => { %>
-                            <% if (field !== '_id') { %> <!-- _id を除外 -->
-                                <td><%= document[field] %></td>
-                            <% } %>
+                        <% fields.forEach(field => { %>
+                            <th><%= field %></th>
                         <% }) %>
                     </tr>
-                <% }) %>
-            </tbody>
-        </table>
-
-        <!-- ページネーション -->
-        <nav aria-label="Page navigation">
-            <ul class="pagination justify-content-center">
-                <% const maxPageButtons = 5; %>
-                <% const startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2)); %>
-                <% const endPage = Math.min(lastPage, startPage + maxPageButtons - 1); %>
-
-                <!-- 最初のページ -->
-                <% if (startPage > 1) { %>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=1" aria-label="First">最初</a>
-                    </li>
-                    <li class="page-item disabled"><span class="page-link">...</span></li>
-                <% } %>
-
-                <!-- ページ番号の表示 -->
-                <% for (let i = startPage; i <= endPage; i++) { %>
-                    <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                        <a class="page-link" href="?page=<%= i %>"><%= i %></a>
-                    </li>
-                <% } %>
-
-                <!-- 最後のページ -->
-                <% if (endPage < lastPage) { %>
-                    <li class="page-item disabled"><span class="page-link">...</span></li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<%= lastPage %>" aria-label="Last">最後</a>
-                    </li>
-                <% } %>
-            </ul>
-        </nav>
+                </thead>
+                <tbody>
+                    <% documents.forEach(doc => { %>
+                        <tr>
+                            <% fields.forEach(field => { %>
+                                <td><%= doc[field] || '未設定' %></td>
+                            <% }) %>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    <% } else { %>
+        <!-- データが存在しない場合 -->
+        <p>データがありません。</p>
+        <div class="mt-3">
+            <a href="/manager/device/<%= dbName_device %>/device_import" class="btn btn-primary">登録</a>
+        </div>
     <% } %>
 
-    <a href="<%= backLink %>" class="btn btn-secondary mt-3">戻る</a>
+    <!-- ページネーション -->
+    <% if (documents.length > 0) { %>
+        <ul class="pagination justify-content-center mt-3">
+            <% const maxPageButtons = 5; %>
+            <% const startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2)); %>
+            <% const endPage = Math.min(lastPage, startPage + maxPageButtons - 1); %>
+
+            <!-- 最初のページ -->
+            <% if (currentPage > 1) { %>
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">最初</a>
+                </li>
+            <% } %>
+
+            <!-- ページ番号 -->
+            <% for (let i = startPage; i <= endPage; i++) { %>
+                <li class="page-item <%= i === currentPage ? 'active' : '' %>">
+                    <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                </li>
+            <% } %>
+
+            <!-- 最後のページ -->
+            <% if (currentPage < lastPage) { %>
+                <li class="page-item">
+                    <a class="page-link" href="?page=<%= lastPage %>">最後</a>
+                </li>
+            <% } %>
+        </ul>
+    <% } %>
 </div>

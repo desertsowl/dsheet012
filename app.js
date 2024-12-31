@@ -224,53 +224,30 @@ const collectionExists = async (database, collectionName) => {
 };
 
 // 機器データ登録ページ
-app.get('/manager/device/:dbName_device/device_import', (req, res) => {
-    const { dbName_device } = req.params;
-
-    res.render('device_import', {
-        title: '機器データ登録',
-        dbName_device
-    });
-});
-
-// ファイルアップロード処理
 app.post('/manager/device/:dbName_device/device_import', uploadCsv.single('csvfile'), async (req, res) => {
     const { dbName_device } = req.params;
     const filePath = req.file.path;
 
-    // コレクション名の検証
-    if (!/^[a-zA-Z0-9_]+$/.test(dbName_device)) {
-        fs.unlinkSync(filePath); // 不正な略称の場合はアップロードファイルを削除
-        return res.render('result', {
-            title: 'エラー',
-            message: '略称が無効です。英数字とアンダースコアのみ使用できます。',
-            backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`
-        });
-    }
-
-    const dbName = 'device'; // 固定データベース
-    const collectionName = dbName_device;
-
     try {
-        const database = mongoose.connection.useDb(dbName);
-        const devicesCollection = database.collection(collectionName);
+        const database = mongoose.connection.useDb('device');
+        const devicesCollection = database.collection(dbName_device);
 
-        // CSVファイルをパースしてデータを登録
-        let records = [];
-        let isHeader = true;
+        const records = [];
+        let headers = null; // ヘッダー行を格納
 
         await new Promise((resolve, reject) => {
             fs.createReadStream(filePath)
                 .pipe(csvParser())
+                .on('headers', (headerRow) => {
+                    headers = headerRow; // ヘッダー行を取得
+                })
                 .on('data', (row) => {
-                    if (isHeader) {
-                        isHeader = false; // 最初の行はヘッダー
-                    }
-                    records.push(row);
+                    records.push(row); // データ行を格納
                 })
                 .on('end', async () => {
                     try {
-                        await devicesCollection.insertMany(records); // データ挿入
+                        // データを挿入
+                        await devicesCollection.insertMany(records);
                         resolve();
                     } catch (err) {
                         reject(err);
@@ -283,14 +260,14 @@ app.post('/manager/device/:dbName_device/device_import', uploadCsv.single('csvfi
 
         fs.unlinkSync(filePath); // 一時ファイルを削除
 
-        // 登録完了後にリダイレクト
-        return res.redirect(`/manager/device/${dbName_device}/read`);
+        // データ挿入後にリダイレクト
+        res.redirect(`/manager/device/${dbName_device}/read`);
     } catch (err) {
-        console.error('Error during CSV import:', err);
+        console.error('Error importing devices:', err);
         fs.unlinkSync(filePath); // エラーが発生した場合も一時ファイルを削除
-        return res.render('result', {
+        res.render('result', {
             title: 'エラー',
-            message: `データ登録中にエラーが発生しました。詳細: ${err.message}`,
+            message: `データのインポート中にエラーが発生しました。詳細: ${err.message}`,
             backLink: `/manager/device/${dbName_device}/device_import`
         });
     }
@@ -302,39 +279,35 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
     const { dbName_device } = req.params;
     const dbName = 'device';
     const devicesCollectionName = dbName_device;
-    const page = parseInt(req.query.page) || 1;
-    const limit = 10;
+    const page = parseInt(req.query.page) || 1; // 現在のページ
+    const limit = 10; // 1ページあたりの表示件数
 
     try {
         const database = mongoose.connection.useDb(dbName);
         const devicesCollection = database.collection(devicesCollectionName);
 
-        // コレクションの存在確認
-        const collections = await database.db.listCollections({ name: devicesCollectionName }).toArray();
-        if (collections.length === 0) {
-            return res.render('result', {
-                title: `${devicesCollectionName} の機器台帳`,
-                message: 'データがありません。',
-                backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`
-            });
-        }
-
-        // 案件名を取得
+        // 案件IDから案件名を取得
         const jobId = dbName_device.replace(/_device$/, '');
         const job = await Job.findById(jobId);
 
-        // ページング処理
+        // ドキュメント総数を取得
         const totalDocuments = await devicesCollection.countDocuments();
         const lastPage = Math.ceil(totalDocuments / limit);
-        const documents = await devicesCollection
-            .find()
+
+        // データ取得
+        const documents = await devicesCollection.find()
             .skip((page - 1) * limit)
             .limit(limit)
             .toArray();
 
+        // フィールド名（項目名）を取得し、_idを除外
+        const fields = documents.length > 0 ? Object.keys(documents[0]).filter(field => field !== '_id') : [];
+
         res.render('device_list', {
-            title: `機器台帳: ${job ? job.案件名 : '案件名不明'}`,
+            title: `${job ? job.案件名 : dbName_device} の機器台帳`,
             documents,
+            fields, // フィールド名をテンプレートに渡す
+            dbName_device,
             currentPage: page,
             lastPage,
             hasPreviousPage: page > 1,
@@ -344,11 +317,36 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
             backLink: `/manager/job/${jobId}/info`
         });
     } catch (err) {
-        console.error(`Error handling collection for '${devicesCollectionName}' in '${dbName}':`, err);
+        console.error('Error fetching devices:', err);
         res.render('result', {
             title: 'エラー',
-            message: `コレクション '${devicesCollectionName}' の処理中にエラーが発生しました。詳細: ${err.message}`,
-            backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`
+            message: `機器台帳の読み込み中にエラーが発生しました。詳細: ${err.message}`,
+            backLink: `/manager/device/${dbName_device}/read`
+        });
+    }
+});
+
+
+// 機器コレクション全削除
+//───────────────────────────────────
+app.post('/manager/device/:dbName_device/deleteAll', async (req, res) => {
+    const { dbName_device } = req.params;
+
+    try {
+        const database = mongoose.connection.useDb('device');
+        const devicesCollection = database.collection(dbName_device);
+
+        // コレクション内のすべてのデータを削除
+        await devicesCollection.deleteMany({});
+
+        // 全削除後にデバイス一覧ページにリダイレクト
+        res.redirect(`/manager/device/${dbName_device}/read`);
+    } catch (err) {
+        console.error('Error deleting all devices:', err);
+        res.render('result', {
+            title: 'エラー',
+            message: `データの全削除中にエラーが発生しました。詳細: ${err.message}`,
+            backLink: `/manager/device/${dbName_device}/read`
         });
     }
 });
@@ -781,6 +779,136 @@ app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async 
         });
     }
 });
+
+
+// チェックシート読込(CSV)
+//───────────────────────────────────
+app.post('/manager/sheet/:id_sheet/import', uploadCsv.single('csvfile'), async (req, res) => {
+    const { id_sheet } = req.params;
+    const filePath = req.file.path;
+
+    try {
+        const database = mongoose.connection.useDb('sheet');
+        const Sheet = require('./models/Sheet')('sheet', id_sheet);
+
+        // スキーマに基づく必須フィールド
+        const requiredFields = ['項番', '項目', '内容', '詳細'];
+
+        const records = [];
+        let isHeaderValid = false;
+
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csvParser())
+                .on('data', (row) => {
+                    if (!isHeaderValid) {
+                        // ヘッダー行の検証
+                        const headers = Object.keys(row);
+                        isHeaderValid = requiredFields.every(field => headers.includes(field));
+
+                        if (!isHeaderValid) {
+                            reject(new Error(`CSVファイルのヘッダーが不正です。必要なフィールド: ${requiredFields.join(', ')}`));
+                            return;
+                        }
+                    }
+                    records.push(row);
+                })
+                .on('end', async () => {
+                    try {
+                        // データ挿入
+                        await Sheet.insertMany(records);
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    }
+                })
+                .on('error', (err) => {
+                    reject(err);
+                });
+        });
+
+        fs.unlinkSync(filePath); // 一時ファイルを削除
+        res.redirect(`/manager/sheet/${id_sheet}/read`);
+    } catch (err) {
+        console.error('Error importing CSV:', err.message);
+        fs.unlinkSync(filePath); // エラーが発生した場合も一時ファイルを削除
+        res.render('result', {
+            title: 'エラー',
+            message: `CSVのインポートに失敗しました。詳細: ${err.message}`,
+            backLink: `/manager/sheet/${id_sheet}/import`
+        });
+    }
+});
+
+// チェックシート保存(CSV)
+//───────────────────────────────────
+app.get('/manager/sheet/:id_sheet/export', async (req, res) => {
+    const { id_sheet } = req.params;
+
+    try {
+        const database = mongoose.connection.useDb('sheet');
+        const Sheet = require('./models/Sheet')('sheet', id_sheet);
+        const documents = await Sheet.find().lean();
+
+        // CSV生成
+        let csvContent = '項番,項目,内容,詳細\n';
+        documents.forEach(doc => {
+            csvContent += `"${doc.項番}","${doc.項目}","${doc.内容}","${doc.詳細}"\n`;
+        });
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=${id_sheet}.csv`);
+        res.send(csvContent);
+    } catch (err) {
+        console.error('Error exporting CSV:', err);
+        res.render('result', {
+            title: 'エラー',
+            message: 'CSVのエクスポートに失敗しました。',
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    }
+});
+
+// チェックシート全削除
+//───────────────────────────────────
+app.post('/manager/sheet/:id_sheet/deleteAll', async (req, res) => {
+    const { id_sheet } = req.params;
+
+    try {
+        const database = mongoose.connection.useDb('sheet');
+        const Sheet = require('./models/Sheet')('sheet', id_sheet);
+
+        await Sheet.deleteMany({});
+        res.redirect(`/manager/sheet/${id_sheet}/read`);
+    } catch (err) {
+        console.error('Error deleting all documents:', err);
+        res.render('result', {
+            title: 'エラー',
+            message: '全削除に失敗しました。',
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    }
+});
+
+// チェックシート読込(csv)
+//───────────────────────────────────
+app.get('/manager/sheet/:id_sheet/import', (req, res) => {
+    const { id_sheet } = req.params;
+
+    try {
+        res.render('sheet_import', {
+            title: 'CSV読込',
+            id_sheet
+        });
+    } catch (err) {
+        console.error('Error loading import page:', err);
+        res.render('result', {
+            title: 'エラー',
+            message: 'CSV読込ページを読み込めませんでした。',
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    }
+});	
 
 // DB作成
 //───────────────────────────────────
