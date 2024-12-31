@@ -1,46 +1,51 @@
 <div class="container">
-    <h1 class="mb-4"><%= title %></h1>
+    <h1 class="mb-4"><%= title %>
+        <a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
+    </h1>
 
     <% if (documents.length === 0) { %>
         <p>まだチェックシートの内容はありません。</p>
     <% } else { %>
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <% Object.keys(documents[0]).forEach(field => { %>
-                        <% if (field !== '_id' && field !== '__v') { %> <!-- _id と __v を除外 -->
-                            <th><%= field %></th>
-                        <% } %>
-                    <% }) %>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="table-responsive">
+            <table class="table table-bordered" style="border-color: #000;">
                 <% documents.forEach(doc => { %>
                     <tr>
-                        <% Object.keys(doc).forEach(field => { %>
-                            <% if (field !== '_id' && field !== '__v') { %>
-                                <td>
-                                    <% if (field === '項番') { %>
-                                        <a href="/manager/sheet/<%= id_sheet %>/edit?id=<%= doc._id %>"><%= doc[field] %></a>
-                                    <% } else { %>
-                                        <%= doc[field] %>
-                                    <% } %>
-                                </td>
-                            <% } %>
-                        <% }) %>
+                        <!-- 項番と項目 -->
+                        <td colspan="2" class="text-white" style="background-color: #0d6efe; border-color: #000; text-align: left;">
+                            <a href="/manager/sheet/<%= id_sheet %>/edit?id=<%= doc._id %>" class="text-white" style="text-decoration: none;">
+                                <strong><%= doc['項番'] %>．<%= doc['項目'] %></strong>
+                            </a>
+                        </td>
                     </tr>
+                    <tr>
+                        <!-- 内容 -->
+                        <td colspan="2" style="border-color: #000; text-align: left;">
+                            <a href="/manager/sheet/<%= id_sheet %>/edit?id=<%= doc._id %>" style="text-decoration: none; color: #000;">
+                                <%= doc['内容'] %>
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <!-- 詳細 -->
+                        <td colspan="2" style="border-color: #000; text-align: left;">
+                            <%= doc['詳細'] %>
+                        </td>
+                    </tr>
+                    <% if (doc['画像']) { %>
+                        <tr>
+                            <!-- 画像 -->
+                            <td colspan="2" style="border-color: #000; text-align: center;">
+                                <img src="/<%= doc['画像'] %>" alt="画像" style="max-width: 100%; height: auto;">
+                            </td>
+                        </tr>
+                    <% } %>
                 <% }) %>
-            </tbody>
-        </table>
+            </table>
+        </div>
     <% } %>
 
-    <!-- ボタン -->
     <div class="mt-3">
-        <% 
-        // id_sheetから末尾の '_sheet' を取り除いて案件のObjectIdを抽出
-        const jobId = id_sheet.replace(/_sheet$/, ''); 
-        %>
-        <a href="http://132.226.0.120:5000/manager/job/<%= jobId %>/info" class="btn btn-secondary">戻る</a>
+        <a href="<%= backLink %>" class="btn btn-secondary">戻る</a>
         <a href="/manager/sheet/<%= id_sheet %>/edit" class="btn btn-primary me-2">追加</a>
     </div>
 </div>

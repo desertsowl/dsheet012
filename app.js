@@ -227,15 +227,6 @@ const collectionExists = async (database, collectionName) => {
 app.get('/manager/device/:dbName_device/device_import', (req, res) => {
     const { dbName_device } = req.params;
 
-    // 略称の検証
-    if (!/^[a-zA-Z0-9_]+$/.test(dbName_device)) {
-        return res.render('result', {
-            title: 'エラー',
-            message: '略称が無効です。英数字とアンダースコアのみ使用できます。',
-            backLink: `/manager/info/${dbName_device}`
-        });
-    }
-
     res.render('device_import', {
         title: '機器データ登録',
         dbName_device
@@ -309,46 +300,31 @@ app.post('/manager/device/:dbName_device/device_import', uploadCsv.single('csvfi
 //───────────────────────────────────
 app.get('/manager/device/:dbName_device/read', async (req, res) => {
     const { dbName_device } = req.params;
-    const dbName = 'device'; // 固定データベース名
-    const devicesCollectionName = dbName_device; // コレクション名はリクエストそのまま
+    const dbName = 'device';
+    const devicesCollectionName = dbName_device;
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
 
     try {
-        // コレクション名の検証
-        if (!/^[a-zA-Z0-9_]+$/.test(devicesCollectionName)) {
-            return res.render('result', {
-                title: 'エラー',
-                message: 'コレクション名が無効です。',
-                backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`,
-                addLink: `/manager/device/${dbName_device}/device_import` // 登録ボタンのリンク
-            });
-        }
-
-        // データベース接続
         const database = mongoose.connection.useDb(dbName);
+        const devicesCollection = database.collection(devicesCollectionName);
 
         // コレクションの存在確認
         const collections = await database.db.listCollections({ name: devicesCollectionName }).toArray();
         if (collections.length === 0) {
-            console.log(`Collection '${devicesCollectionName}' does not exist. Creating it.`);
-            await database.createCollection(devicesCollectionName); // コレクションを作成
-        }
-
-        const devicesCollection = database.collection(devicesCollectionName);
-
-        // ドキュメントの総数を確認
-        const totalDocuments = await devicesCollection.countDocuments();
-        if (totalDocuments === 0) {
             return res.render('result', {
                 title: `${devicesCollectionName} のデバイス一覧`,
                 message: 'データがありません。',
-                backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`,
-                addLink: `/manager/device/${dbName_device}/device_import` // 登録ボタンのリンク
+                backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`
             });
         }
 
+        // 案件名を取得
+        const jobId = dbName_device.replace(/_device$/, '');
+        const job = await Job.findById(jobId);
+
         // ページング処理
+        const totalDocuments = await devicesCollection.countDocuments();
         const lastPage = Math.ceil(totalDocuments / limit);
         const documents = await devicesCollection
             .find()
@@ -357,15 +333,15 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
             .toArray();
 
         res.render('device_list', {
-            title: `${devicesCollectionName} のデバイス一覧`,
-            documents, // documents をテンプレートに渡す
+            title: `デバイス一覧: ${job ? job.案件名 : '案件名不明'}`,
+            documents,
             currentPage: page,
             lastPage,
             hasPreviousPage: page > 1,
             hasNextPage: page < lastPage,
             previousPage: page - 1,
             nextPage: page + 1,
-            backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`
+            backLink: `/manager/job/${jobId}/info`
         });
     } catch (err) {
         console.error(`Error handling collection for '${devicesCollectionName}' in '${dbName}':`, err);
@@ -442,6 +418,43 @@ app.post('/manager/job/new', async (req, res) => {
 
 // 案件編集ページ
 //───────────────────────────────────
+app.get('/manager/job/:id/edit', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const job = await Job.findById(id); // 案件IDに基づいてデータを取得
+        if (!job) {
+            return res.render('result', {
+                title: 'エラー',
+                message: '指定された案件が見つかりません。',
+                backLink: '/manager' // 戻り先を設定
+            });
+        }
+
+        // スタッフデータを取得（必要に応じて）
+        const database = mongoose.connection.useDb('staff');
+        const collections = await database.db.listCollections().toArray();
+        const staffCollections = collections.map(col => col.name);
+        staffCollections.unshift('everyone');
+
+        res.render('edit', {
+            title: '案件編集',
+            job,
+            staffCollections,
+            backLink: `/manager/job/${id}/info` // 戻りリンクをテンプレートに渡す
+        });
+    } catch (err) {
+        console.error('Error fetching job for edit:', err);
+        res.render('result', {
+            title: 'エラー',
+            message: '編集ページを読み込めませんでした。',
+            backLink: '/manager' // 戻り先を設定
+        });
+    }
+});
+
+// 案件編集ページ(保存)
+//───────────────────────────────────
 app.post('/manager/job/:id/edit', async (req, res) => {
     const { id } = req.params;
     const { 案件名, スタッフ, 開始日, 終了日 } = req.body;
@@ -461,43 +474,6 @@ app.post('/manager/job/:id/edit', async (req, res) => {
             title: 'エラー',
             message: '案件編集中にエラーが発生しました。',
             backLink: `/manager/job/${id}/edit`
-        });
-    }
-});
-
-// 案件編集ページ(保存)
-//───────────────────────────────────
-// 案件編集ページ
-app.get('/manager/job/:id/edit', async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        const job = await Job.findById(id); // 案件IDに基づいてデータを取得
-        if (!job) {
-            return res.render('result', {
-                title: 'エラー',
-                message: '指定された案件が見つかりません。',
-                backLink: '/manager'
-            });
-        }
-
-        // スタッフデータを取得（必要に応じて）
-        const database = mongoose.connection.useDb('staff');
-        const collections = await database.db.listCollections().toArray();
-        const staffCollections = collections.map(col => col.name);
-        staffCollections.unshift('everyone');
-
-        res.render('edit', {
-            title: '案件編集',
-            job,
-            staffCollections
-        });
-    } catch (err) {
-        console.error('Error fetching job for edit:', err);
-        res.render('result', {
-            title: 'エラー',
-            message: '編集ページを読み込めませんでした。',
-            backLink: '/manager'
         });
     }
 });
@@ -536,7 +512,7 @@ app.get('/manager/resource', authorize([8, 4]), (req, res) => {
 app.get('/admin/status/system', async (req, res) => {
     try {
         const dbStatus = mongoose.connection.readyState === 1 ? '接続中' : '未接続';
-        const databases = ['job', 'device', 'kitting', 'staff', 'systemlog'];
+        const databases = ['job', 'device', 'sheet', 'kitting', 'staff', 'systemlog'];
 
         // 各データベースのコレクション一覧を取得
         const collectionInfo = {};
@@ -655,27 +631,29 @@ app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
     const { id_sheet } = req.params;
 
     try {
-        // データベースの特定のコレクションを使用
         const database = mongoose.connection.useDb('sheet');
         const SheetModel = require('./models/Sheet');
-        const Sheet = SheetModel('sheet', id_sheet); // id_sheet をコレクション名として使用
+        const Sheet = SheetModel('sheet', id_sheet);
 
         // ドキュメントを取得
         const documents = await Sheet.find().lean();
         const isEmpty = documents.length === 0;
 
+        // 案件名を取得
+        const jobId = id_sheet.replace(/_sheet$/, '');
+        const job = await Job.findById(jobId); // Jobモデルを使って案件名を取得
+
         res.render('sheet_read', {
-            title: `チェックシート - ${id_sheet}`,
+            title: `チェックシート設計: ${job ? job.案件名 : '案件名不明'}`,
             documents,
             id_sheet,
-            isEmpty
+            isEmpty,
+            backLink: `/manager/job/${jobId}/info`
         });
     } catch (err) {
         console.error('Error fetching sheet:', err);
 
-        // 案件IDを抽出するために id_sheet から "_sheet" を除去
         const jobId = id_sheet.replace(/_sheet$/, '');
-
         res.render('result', {
             title: 'エラー',
             message: 'チェックシートを読み込めませんでした。',

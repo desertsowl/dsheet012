@@ -1,5 +1,7 @@
 <div class="container">
-    <h1 class="mb-4"><%= title %></h1>
+    <h1 class="mb-2"><%= title %>
+		<a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
+	</h1>
 
     <form action="/manager/sheet/<%= id_sheet %>/save" method="post" enctype="multipart/form-data">
         <% if (document) { %>

@@ -1,5 +1,6 @@
 <div class="container">
-<h1>システムステータス</h1>
+<h1>システムステータス
+		<a href="/admin/" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a></h1>
 <p>サーバー時間: <%= status.serverTime %></p>
 <p>データベース接続状態: <%= status.dbStatus %></p>
 
@@ -13,5 +14,4 @@
     </ul>
 <% }) %>
 
-<a href="/admin">管理者ページに戻る</a>
 </div>
