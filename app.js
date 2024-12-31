@@ -313,7 +313,7 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
         const collections = await database.db.listCollections({ name: devicesCollectionName }).toArray();
         if (collections.length === 0) {
             return res.render('result', {
-                title: `${devicesCollectionName} のデバイス一覧`,
+                title: `${devicesCollectionName} の機器台帳`,
                 message: 'データがありません。',
                 backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`
             });
@@ -333,7 +333,7 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
             .toArray();
 
         res.render('device_list', {
-            title: `デバイス一覧: ${job ? job.案件名 : '案件名不明'}`,
+            title: `機器台帳: ${job ? job.案件名 : '案件名不明'}`,
             documents,
             currentPage: page,
             lastPage,
