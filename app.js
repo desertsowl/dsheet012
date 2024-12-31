@@ -304,7 +304,7 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
         const fields = documents.length > 0 ? Object.keys(documents[0]).filter(field => field !== '_id') : [];
 
         res.render('device_list', {
-            title: `${job ? job.案件名 : dbName_device} の機器台帳`,
+            title: `機器台帳︰${job ? job.案件名 : dbName_device} `,
             documents,
             fields, // フィールド名をテンプレートに渡す
             dbName_device,
@@ -325,7 +325,6 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
         });
     }
 });
-
 
 // 機器コレクション全削除
 //───────────────────────────────────
