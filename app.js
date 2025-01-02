@@ -747,13 +747,12 @@ app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async 
 
 // チェックシート削除
 //───────────────────────────────────
-// POSTルート修正: 保存または削除
 app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image'), async (req, res) => {
-    console.log('Received action:', req.body.action); // 送信されたアクションを確認
+    console.log('Received action:', req.body.action); // デバッグ用ログ
 
     const { id_sheet } = req.params;
     const { id, action, item_number, item_name, item_content, item_details } = req.body;
-    const item_image = req.file ? `img/${req.file.filename}` : ''; // アップロードされた画像のパス
+    const item_image = req.file ? `img/${req.file.filename}` : ''; // アップロードされた画像
     const dbName = 'sheet';
 
     try {
@@ -769,20 +768,29 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
         }
 
         if (action === 'save') {
-            // 保存処理
+            const itemNumber = parseInt(item_number, 10);
+
+            // 項番の重複チェック
+            const duplicateDocument = await Sheet.findOne({ 項番: itemNumber, _id: { $ne: id } });
+
+            if (duplicateDocument) {
+                // 重複が発生した場合、以降の項番をシフト
+                await shiftItemNumbers(Sheet, itemNumber);
+            }
+
             if (id) {
-                // 既存データの更新
+                // 更新
                 await Sheet.findByIdAndUpdate(id, {
-                    項番: parseInt(item_number, 10),
+                    項番: itemNumber,
                     項目: item_name,
                     内容: item_content,
                     詳細: item_details,
                     ...(item_image && { 画像: item_image })
                 });
             } else {
-                // 新規データの作成
+                // 新規作成
                 await Sheet.create({
-                    項番: parseInt(item_number, 10),
+                    項番: itemNumber,
                     項目: item_name,
                     内容: item_content,
                     詳細: item_details,
@@ -792,7 +800,6 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
             return res.redirect(`/manager/sheet/${id_sheet}/read`);
         }
 
-        // 不正なアクション
         throw new Error('無効なアクションが指定されました。');
     } catch (err) {
         console.error('Error handling save or delete:', err.message);
@@ -803,6 +810,51 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
         });
     }
 });
+
+// 項番の重複解消処理
+async function shiftItemNumbers(Sheet, startNumber) {
+    try {
+        const collection = Sheet.collection;
+
+        // 1. ユニークインデックスを一時的に解除
+        await collection.dropIndex('項番_1');
+
+        // 項番がstartNumber以上のドキュメントを取得
+        const documents = await Sheet.find({ 項番: { $gte: startNumber } }).sort({ 項番: 1 }).lean();
+
+        if (documents.length === 0) {
+            // インデックスを再作成して終了
+            await collection.createIndex({ 項番: 1 }, { unique: true });
+            return;
+        }
+
+        // 一時的に項番を大きな値にシフト
+        const tempShift = 1000;
+        const tempOperations = documents.map(doc => ({
+            updateOne: {
+                filter: { _id: doc._id },
+                update: { $set: { 項番: doc.項番 + tempShift } }
+            }
+        }));
+        await Sheet.bulkWrite(tempOperations);
+
+        // 正しい項番に戻す
+        const finalOperations = documents.map(doc => ({
+            updateOne: {
+                filter: { _id: doc._id },
+                update: { $set: { 項番: doc.項番 + 1 } }
+            }
+        }));
+        await Sheet.bulkWrite(finalOperations);
+
+        // 2. ユニークインデックスを再作成
+        await collection.createIndex({ 項番: 1 }, { unique: true });
+    } catch (err) {
+        console.error('Error shifting item numbers with bulkWrite:', err.message);
+        throw new Error('項番の重複解消中にエラーが発生しました。');
+    }
+}
+
 
 // チェックシート読込(CSV)
 //───────────────────────────────────
