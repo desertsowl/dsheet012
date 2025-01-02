@@ -1,9 +1,8 @@
 <div class="container">
-    <h1 class="mb-2"><%= title %>
-        <a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
-    </h1>
+    <h1 class="mb-2"><%= title %></h1>
 
-    <form action="/manager/sheet/<%= id_sheet %>/save" method="post" enctype="multipart/form-data">
+    <!-- 保存と削除を1つのフォームで処理 -->
+    <form action="/manager/sheet/<%= id_sheet %>/save_or_delete" method="post" enctype="multipart/form-data">
         <% if (document) { %>
             <input type="hidden" name="id" value="<%= document._id %>"> <!-- ObjectIdをフォームで送信 -->
         <% } %>
@@ -48,8 +47,12 @@
 
         <!-- ボタン -->
         <div class="d-flex gap-2">
-            <a href="/manager/sheet/<%= id_sheet %>/read" class="btn btn-secondary">戻る</a>
-            <button type="submit" class="btn btn-primary">保存</button>
+            <% if (document) { %>
+                <!-- 削除ボタン -->
+                <button type="submit" name="action" value="delete" class="btn btn-danger">削除</button>
+            <% } %>
+            <!-- 保存ボタン -->
+            <button type="submit" name="action" value="save" class="btn btn-primary">保存</button>
         </div>
     </form>
 </div>

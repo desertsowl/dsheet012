@@ -745,6 +745,65 @@ app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async 
     }
 });
 
+// チェックシート削除
+//───────────────────────────────────
+// POSTルート修正: 保存または削除
+app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image'), async (req, res) => {
+    console.log('Received action:', req.body.action); // 送信されたアクションを確認
+
+    const { id_sheet } = req.params;
+    const { id, action, item_number, item_name, item_content, item_details } = req.body;
+    const item_image = req.file ? `img/${req.file.filename}` : ''; // アップロードされた画像のパス
+    const dbName = 'sheet';
+
+    try {
+        const database = mongoose.connection.useDb(dbName);
+        const SheetModel = require('./models/Sheet');
+        const Sheet = SheetModel(dbName, id_sheet);
+
+        if (action === 'delete') {
+            // 削除処理
+            if (!id) throw new Error('削除対象のIDが指定されていません。');
+            await Sheet.findByIdAndDelete(id);
+            return res.redirect(`/manager/sheet/${id_sheet}/read`);
+        }
+
+        if (action === 'save') {
+            // 保存処理
+            if (id) {
+                // 既存データの更新
+                await Sheet.findByIdAndUpdate(id, {
+                    項番: parseInt(item_number, 10),
+                    項目: item_name,
+                    内容: item_content,
+                    詳細: item_details,
+                    ...(item_image && { 画像: item_image })
+                });
+            } else {
+                // 新規データの作成
+                await Sheet.create({
+                    項番: parseInt(item_number, 10),
+                    項目: item_name,
+                    内容: item_content,
+                    詳細: item_details,
+                    画像: item_image
+                });
+            }
+            return res.redirect(`/manager/sheet/${id_sheet}/read`);
+        }
+
+        // 不正なアクション
+        throw new Error('無効なアクションが指定されました。');
+    } catch (err) {
+        console.error('Error handling save or delete:', err.message);
+        res.render('result', {
+            title: 'エラー',
+            message: `処理中にエラーが発生しました。詳細: ${err.message}`,
+            backLink: `/manager/sheet/${id_sheet}/edit`
+        });
+    }
+});
+
 // チェックシート読込(CSV)
 //───────────────────────────────────
 app.post('/manager/sheet/:id_sheet/import', uploadCsv.single('csvfile'), async (req, res) => {
