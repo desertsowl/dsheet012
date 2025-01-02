@@ -667,10 +667,9 @@ app.get('/manager/sheet/:id_sheet/edit', async (req, res) => {
     const dbName = 'sheet';
 
     try {
-        // データベースの特定のコレクションを使用
         const database = mongoose.connection.useDb(dbName);
-        const SheetModel = require('./models/Sheet'); // モデル関数
-        const Sheet = SheetModel(dbName, id_sheet);   // 特定のコレクションを操作するためにid_sheetを渡す
+        const SheetModel = require('./models/Sheet');
+        const Sheet = SheetModel(dbName, id_sheet);
 
         let document = null;
 
@@ -679,13 +678,16 @@ app.get('/manager/sheet/:id_sheet/edit', async (req, res) => {
             document = await Sheet.findById(id).lean();
         }
 
-        // 次の項番を計算
-        const nextItemNumber = document ? null : (await Sheet.countDocuments()) + 1;
+        // すべての項番を取得し、最大値を計算
+        const allDocuments = await Sheet.find().lean();
+        const itemNumbers = allDocuments.map(doc => doc.項番).sort((a, b) => a - b);
+        const nextItemNumber = itemNumbers.length > 0 ? Math.max(...itemNumbers) + 1 : 1;
 
         res.render('sheet_edit', {
             title: id ? `編集: 項番 ${document.項番}` : `新規項目の追加`,
             id_sheet,
             document,
+            itemNumbers,
             nextItemNumber,
             backLink: `/manager/sheet/${id_sheet}/read`
         });
@@ -699,6 +701,8 @@ app.get('/manager/sheet/:id_sheet/edit', async (req, res) => {
     }
 });
 
+// チェックシート保存
+//──────────────────────────────
 app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async (req, res) => {
     const { id_sheet } = req.params;
     const { id, item_number, item_name, item_content, item_details } = req.body;
@@ -706,13 +710,14 @@ app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async 
     const dbName = 'sheet';
 
     try {
+        const database = mongoose.connection.useDb(dbName);
         const SheetModel = require('./models/Sheet');
-        const Sheet = SheetModel(dbName, id_sheet);   // 特定のコレクションを操作するためにid_sheetを渡す
+        const Sheet = SheetModel(dbName, id_sheet);
 
         if (id) {
             // 既存データの更新
             await Sheet.findByIdAndUpdate(id, {
-                項番: item_number,
+                項番: parseInt(item_number, 10),
                 項目: item_name,
                 内容: item_content,
                 詳細: item_details,
@@ -721,7 +726,7 @@ app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async 
         } else {
             // 新規データの作成
             await Sheet.create({
-                項番: item_number,
+                項番: parseInt(item_number, 10),
                 項目: item_name,
                 内容: item_content,
                 詳細: item_details,
@@ -739,46 +744,6 @@ app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async 
         });
     }
 });
-
-// チェックシート編集ページ(保存)
-//──────────────────────────────
-app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async (req, res) => {
-    const { id_sheet } = req.params;
-    const { id, item_number, item_name, item_content, item_details } = req.body;
-    const item_image = req.file ? `img/${req.file.filename}` : '';
-
-    try {
-        const Sheet = require('./models/Sheet')('sheet');
-
-        if (id) {
-            await Sheet.findByIdAndUpdate(id, {
-                項番: item_number,
-                項目: item_name,
-                内容: item_content,
-                詳細: item_details,
-                ...(item_image && { 画像: item_image })
-            });
-        } else {
-            await Sheet.create({
-                項番: item_number,
-                項目: item_name,
-                内容: item_content,
-                詳細: item_details,
-                画像: item_image
-            });
-        }
-
-        res.redirect(`/manager/sheet/${id_sheet}/read`); // ObjectIdベースのリンク
-    } catch (err) {
-        console.error('Error saving sheet data:', err.message);
-        res.render('result', {
-            title: 'エラー',
-            message: 'データの保存に失敗しました。',
-            backLink: `/manager/sheet/${id_sheet}/edit`
-        });
-    }
-});
-
 
 // チェックシート読込(CSV)
 //───────────────────────────────────
@@ -1113,4 +1078,3 @@ app.get('/admin/src/view', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
-

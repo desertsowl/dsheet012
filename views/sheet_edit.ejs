@@ -1,7 +1,7 @@
 <div class="container">
     <h1 class="mb-2"><%= title %>
-		<a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
-	</h1>
+        <a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
+    </h1>
 
     <form action="/manager/sheet/<%= id_sheet %>/save" method="post" enctype="multipart/form-data">
         <% if (document) { %>
@@ -11,7 +11,12 @@
         <!-- 項番 -->
         <div class="mb-3">
             <label for="項番" class="form-label">項番</label>
-            <input type="number" name="item_number" id="項番" value="<%= document ? document.項番 : nextItemNumber %>" class="form-control" readonly>
+            <select name="item_number" id="項番" class="form-select">
+                <% itemNumbers.forEach(number => { %>
+                    <option value="<%= number %>" <%= document && document.項番 === number ? 'selected' : '' %>><%= number %></option>
+                <% }) %>
+                <option value="<%= nextItemNumber %>" <%= !document ? 'selected' : '' %>><%= nextItemNumber %> (新規)</option>
+            </select>
         </div>
 
         <!-- 項目 -->
@@ -48,4 +53,3 @@
         </div>
     </form>
 </div>
-
