@@ -632,8 +632,8 @@ app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
         const SheetModel = require('./models/Sheet');
         const Sheet = SheetModel('sheet', id_sheet);
 
-        // ドキュメントを取得
-        const documents = await Sheet.find().lean();
+        // ドキュメントを項番の昇順で取得
+        const documents = await Sheet.find().sort({ 項番: 1 }).lean();
         const isEmpty = documents.length === 0;
 
         // 案件名を取得

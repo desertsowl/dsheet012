@@ -8,14 +8,44 @@
         <% } %>
 
         <!-- 項番 -->
-        <div class="mb-3">
+        <div class="mb-3 position-relative">
             <label for="項番" class="form-label">項番</label>
-            <select name="item_number" id="項番" class="form-select">
-                <% itemNumbers.forEach(number => { %>
-                    <option value="<%= number %>" <%= document && document.項番 === number ? 'selected' : '' %>><%= number %></option>
-                <% }) %>
-                <option value="<%= nextItemNumber %>" <%= !document ? 'selected' : '' %>><%= nextItemNumber %> (新規)</option>
-            </select>
+            <div class="input-group">
+                <!-- 自由入力フィールド -->
+                <input 
+                    type="text" 
+                    name="item_number" 
+                    id="項番" 
+                    value="<%= document ? document.項番 : nextItemNumber %>" 
+                    class="form-control" 
+                    autocomplete="off"
+                >
+
+                <!-- セレクタのトリガーボタン -->
+                <button 
+                    type="button" 
+                    class="btn btn-outline-secondary dropdown-toggle" 
+                    id="itemNumberSelector" 
+                    data-bs-toggle="dropdown" 
+                    aria-expanded="false"
+                >
+                </button>
+
+                <!-- セレクタのオプション -->
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="itemNumberSelector">
+                    <% itemNumbers.forEach(number => { %>
+                        <li>
+                            <button 
+                                type="button" 
+                                class="dropdown-item" 
+                                onclick="selectItemNumber('<%= number %>')"
+                            >
+                                <%= number %>
+                            </button>
+                        </li>
+                    <% }) %>
+                </ul>
+            </div>
         </div>
 
         <!-- 項目 -->
@@ -56,3 +86,10 @@
         </div>
     </form>
 </div>
+
+<!-- JavaScript -->
+<script>
+    function selectItemNumber(number) {
+        document.getElementById('項番').value = number;
+    }
+</script>
