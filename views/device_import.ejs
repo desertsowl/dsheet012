@@ -1,7 +1,30 @@
-<h1><%= title %></h1>
-
-<form action="/manager/device/<%= dbName_device %>/device_import" method="POST" enctype="multipart/form-data">
-    <label for="csvfile">CSVファイルを選択してください:</label>
-    <input type="file" id="csvfile" name="csvfile" accept=".csv" required>
-    <button type="submit">アップロード</button>
-</form>
+<div class="container">
+    <h1 class="mb-5">
+        <%= title %>
+        <a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
+    </h1>
+    <form action="/manager/device/<%= dbName_device %>/device_import" method="post" enctype="multipart/form-data">
+        <div class="mb-5">
+            <!-- ファイル選択フォーム -->
+            <label for="csvfile" class="form-label">・CSVファイルを選択</label>
+            <input 
+                type="file" 
+                name="csvfile" 
+                id="csvfile" 
+                class="form-control" 
+                required 
+                aria-describedby="uploadButton"
+            >
+        </div>
+        <!-- アップロードボタン -->
+        <div class="d-grid">
+            <button 
+                type="submit" 
+                id="uploadButton" 
+                class="btn btn-primary"
+            >
+                アップロード
+            </button>
+        </div>
+    </form>
+</div>

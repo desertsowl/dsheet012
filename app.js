@@ -967,23 +967,29 @@ app.post('/manager/sheet/:id_sheet/deleteAll', async (req, res) => {
 
 // チェックシート読込(csv)
 //───────────────────────────────────
-app.get('/manager/sheet/:id_sheet/import', (req, res) => {
-    const { id_sheet } = req.params;
+// デバイス登録ページを表示
+app.get('/manager/device/:dbName_device/device_import', async (req, res) => {
+    const { dbName_device } = req.params;
 
     try {
-        res.render('sheet_import', {
-            title: 'CSV読込',
-            id_sheet
+        // 必要に応じてデバイスの情報や案件名を取得
+        const jobId = dbName_device.replace(/_device$/, '');
+        const job = await Job.findById(jobId);
+
+        res.render('device_import', {
+            title: `${job ? job.案件名 : '案件名不明'} - 機器登録`,
+            dbName_device,
+            backLink: `/manager/device/${dbName_device}/read`
         });
     } catch (err) {
-        console.error('Error loading import page:', err);
+        console.error('Error loading device import page:', err.message);
         res.render('result', {
             title: 'エラー',
-            message: 'CSV読込ページを読み込めませんでした。',
-            backLink: `/manager/sheet/${id_sheet}/read`
+            message: 'デバイス登録ページの読み込み中にエラーが発生しました。',
+            backLink: `/manager/device/${dbName_device}/read`
         });
     }
-});	
+});
 
 // DB作成
 //───────────────────────────────────

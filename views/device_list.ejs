@@ -1,12 +1,10 @@
 <div class="container">
-    <h1 class="mb-4"><%= title %>
-		<a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
+    <h1 class="mb-2"><%= title %>
+        <a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
 </h1>
-
     <% if (documents.length > 0) { %>
-        <!-- データが存在する場合 -->
         <div class="table-responsive">
-            <table class="table table-bordered table-hover">
+            <table class="table table-bordered">
                 <thead>
                     <tr>
                         <% fields.forEach(field => { %>
@@ -18,48 +16,49 @@
                     <% documents.forEach(doc => { %>
                         <tr>
                             <% fields.forEach(field => { %>
-                                <td><%= doc[field] || '未設定' %></td>
+                                <td><%= doc[field] %></td>
                             <% }) %>
                         </tr>
                     <% }) %>
                 </tbody>
             </table>
         </div>
-    <% } else { %>
-        <!-- データが存在しない場合 -->
-        <p>データがありません。</p>
-        <div class="mt-3">
-            <a href="/manager/device/<%= dbName_device %>/device_import" class="btn btn-primary">登録</a>
+
+        <!-- ページネーションと全削除ボタン -->
+        <div class="d-flex justify-content-between align-items-center">
+            <!-- 全削除ボタン -->
+            <form action="/manager/device/<%= dbName_device %>/deleteAll" method="post" onsubmit="return confirm('すべての機器を削除してもよろしいですか？');">
+                <button type="submit" class="btn btn-danger">全削除</button>
+            </form>
+
+            <!-- ページネーション -->
+            <ul class="pagination">
+                <% if (hasPreviousPage) { %>
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">最初</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page=<%= previousPage %>">&laquo;</a>
+                    </li>
+                <% } %>
+                <% for (let i = 1; i <= lastPage; i++) { %>
+                    <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                        <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                    </li>
+                <% } %>
+                <% if (hasNextPage) { %>
+                    <li class="page-item">
+                        <a class="page-link" href="?page=<%= nextPage %>">&raquo;</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page=<%= lastPage %>">最後</a>
+                    </li>
+                <% } %>
+            </ul>
         </div>
-    <% } %>
-
-    <!-- ページネーション -->
-    <% if (documents.length > 0) { %>
-        <ul class="pagination justify-content-center mt-3">
-            <% const maxPageButtons = 5; %>
-            <% const startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2)); %>
-            <% const endPage = Math.min(lastPage, startPage + maxPageButtons - 1); %>
-
-            <!-- 最初のページ -->
-            <% if (currentPage > 1) { %>
-                <li class="page-item">
-                    <a class="page-link" href="?page=1">最初</a>
-                </li>
-            <% } %>
-
-            <!-- ページ番号 -->
-            <% for (let i = startPage; i <= endPage; i++) { %>
-                <li class="page-item <%= i === currentPage ? 'active' : '' %>">
-                    <a class="page-link" href="?page=<%= i %>"><%= i %></a>
-                </li>
-            <% } %>
-
-            <!-- 最後のページ -->
-            <% if (currentPage < lastPage) { %>
-                <li class="page-item">
-                    <a class="page-link" href="?page=<%= lastPage %>">最後</a>
-                </li>
-            <% } %>
-        </ul>
+    <% } else { %>
+        <p>データがありません。</p>
+        <!-- 登録ボタン -->
+        <a href="/manager/device/<%= dbName_device %>/device_import" class="btn btn-primary">登録</a>
     <% } %>
 </div>
