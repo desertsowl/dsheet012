@@ -1180,6 +1180,39 @@ app.get('/admin/src/view', (req, res) => {
     });
 });
 
+// ダウンローダ
+//───────────────────────────────────
+app.get('/admin/src/download', (req, res) => {
+    const { file } = req.query;
+
+    try {
+        // ファイルパスを安全に生成
+        const filePath = path.join(__dirname, file);
+
+        // ファイルの存在を確認
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).send('ファイルが見つかりません。');
+        }
+
+        // ファイル名を安全に設定
+        const safeFileName = path.basename(file);
+
+        // 適切なContent-Typeヘッダーを設定
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
+
+        // ファイルを送信
+        fs.createReadStream(filePath)
+            .on('error', (err) => {
+                console.error('ファイル送信エラー:', err);
+                res.status(500).send('ファイル送信中にエラーが発生しました。');
+            })
+            .pipe(res);
+    } catch (err) {
+        console.error('ダウンロードエラー:', err);
+        res.status(500).send('ダウンロード中にエラーが発生しました。');
+    }
+});	
 
 //───────────────────────────────────
 // 6. エラーハンドリング

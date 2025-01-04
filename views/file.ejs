@@ -1,19 +1,36 @@
 <main class="container mt-5">
     <h1 class="mb-3"><%= title %></h1>
     <div class="d-flex justify-content-end mb-3">
+        <!-- ダウンロードボタン -->
+        <a 
+            href="/admin/src/download?file=<%= encodeURIComponent(title) %>" 
+            class="btn btn-secondary me-2" 
+            id="downloadButton"
+        >
+            ダウンロード
+        </a>
+        <!-- コピーボタン -->
         <button class="btn btn-primary" id="copyButton">コピー</button>
     </div>
     <pre id="sourceCode" style="background: #f8f9fa; padding: 1rem; border: 1px solid #ddd; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;">
-<%= content %>
+<%- content.trim() %>
     </pre>
 </main>
 
 <script>
+    // ダウンロード成功ダイアログの表示
+    document.getElementById('downloadButton').addEventListener('click', function (event) {
+        // 小さな遅延を加えてダイアログを表示
+        setTimeout(() => {
+            alert('ダウンロードできました');
+        }, 500);
+    });
+
+    // コピー機能
     document.getElementById('copyButton').addEventListener('click', function () {
         const sourceCodeElement = document.getElementById('sourceCode');
         const sourceCode = sourceCodeElement.innerText;
 
-        // モダンな方法でクリップボードにコピー
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(sourceCode)
                 .then(() => alert('コピー成功！'))
@@ -22,16 +39,14 @@
                     fallbackCopy(sourceCodeElement);
                 });
         } else {
-            // フォールバックメソッドを使用
             fallbackCopy(sourceCodeElement);
         }
     });
 
-    // フォールバックメソッド: テキストエリアを使用してコピー
     function fallbackCopy(element) {
         const textArea = document.createElement('textarea');
         textArea.value = element.innerText;
-        textArea.style.position = 'fixed'; // 画面外に配置
+        textArea.style.position = 'fixed';
         textArea.style.left = '-9999px';
         document.body.appendChild(textArea);
         textArea.select();
