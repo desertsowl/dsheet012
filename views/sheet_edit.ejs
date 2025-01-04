@@ -1,5 +1,8 @@
 <div class="container">
-    <h1 class="mb-2"><%= title %></h1>
+    <h1 class="mb-2">
+        <%= title %>
+        <a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
+    </h1>
 
     <!-- 保存と削除を1つのフォームで処理 -->
     <form action="/manager/sheet/<%= id_sheet %>/save_or_delete" method="post" enctype="multipart/form-data">
@@ -8,8 +11,8 @@
         <% } %>
 
         <!-- 項番 -->
-        <div class="mb-3 position-relative">
-            <label for="項番" class="form-label">項番</label>
+        <div class="mb-3">
+            <label for="項番" class="form-label">項番&emsp;(割込可能)</label>
             <div class="input-group">
                 <!-- 自由入力フィールド -->
                 <input 
@@ -18,7 +21,10 @@
                     id="項番" 
                     value="<%= document ? document.項番 : nextItemNumber %>" 
                     class="form-control" 
-                    autocomplete="off"
+                    autocomplete="off" 
+                    oninput="validateItemNumber(this)" 
+                    placeholder="半角数字のみ入力" 
+                    required
                 >
 
                 <!-- セレクタのトリガーボタン -->
@@ -28,8 +34,7 @@
                     id="itemNumberSelector" 
                     data-bs-toggle="dropdown" 
                     aria-expanded="false"
-                >
-                </button>
+                ></button>
 
                 <!-- セレクタのオプション -->
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="itemNumberSelector">
@@ -89,7 +94,13 @@
 
 <!-- JavaScript -->
 <script>
+    // 項番選択時に入力フィールドを更新
     function selectItemNumber(number) {
         document.getElementById('項番').value = number;
+    }
+
+    // 項番を半角数字のみに制限
+    function validateItemNumber(input) {
+        input.value = input.value.replace(/[^0-9]/g, ''); // 数字以外を除外
     }
 </script>
