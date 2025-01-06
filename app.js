@@ -277,54 +277,54 @@ app.post('/manager/device/:dbName_device/device_import', uploadCsv.single('csvfi
 //───────────────────────────────────
 app.get('/manager/device/:dbName_device/read', async (req, res) => {
     const { dbName_device } = req.params;
-    const dbName = 'device';
-    const devicesCollectionName = dbName_device;
-    const page = parseInt(req.query.page) || 1; // 現在のページ
-    const limit = 10; // 1ページあたりの表示件数
+    const currentPage = parseInt(req.query.page, 10) || 1;
+    const limit = 10; // 1ページあたりの件数
 
     try {
-        const database = mongoose.connection.useDb(dbName);
-        const devicesCollection = database.collection(devicesCollectionName);
+        const database = mongoose.connection.useDb('device');
+        const devicesCollection = database.collection(dbName_device);
 
         // 案件IDから案件名を取得
         const jobId = dbName_device.replace(/_device$/, '');
         const job = await Job.findById(jobId);
 
-        // ドキュメント総数を取得
+        // 全ドキュメント数を取得
         const totalDocuments = await devicesCollection.countDocuments();
         const lastPage = Math.ceil(totalDocuments / limit);
 
-        // データ取得
-        const documents = await devicesCollection.find()
-            .skip((page - 1) * limit)
+        // ページグループの開始を計算
+        const groupStart = parseInt(req.query.groupStart, 10) || Math.max(1, currentPage - ((currentPage - 1) % 5));
+
+        // 表示するドキュメントを取得
+        const documents = await devicesCollection
+            .find()
+            .skip((currentPage - 1) * limit)
             .limit(limit)
             .toArray();
 
-        // フィールド名（項目名）を取得し、_idを除外
-        const fields = documents.length > 0 ? Object.keys(documents[0]).filter(field => field !== '_id') : [];
+        // フィールド名を取得 (_idは除外)
+        const fields = documents.length > 0 ? Object.keys(documents[0]).filter((field) => field !== '_id') : [];
 
         res.render('device_list', {
-            title: `機器台帳︰${job ? job.案件名 : dbName_device} `,
+            title: `機器台帳 - ${job ? job.案件名 : '案件名不明'}`,
             documents,
-            fields, // フィールド名をテンプレートに渡す
+            fields,
             dbName_device,
-            currentPage: page,
+            currentPage,
             lastPage,
-            hasPreviousPage: page > 1,
-            hasNextPage: page < lastPage,
-            previousPage: page - 1,
-            nextPage: page + 1,
-            backLink: `/manager/job/${jobId}/info`
+            groupStart,
+            backLink: `/manager/job/${jobId}/info`,
         });
     } catch (err) {
-        console.error('Error fetching devices:', err);
+        console.error('Error loading device list:', err.message);
         res.render('result', {
             title: 'エラー',
-            message: `機器台帳の読み込み中にエラーが発生しました。詳細: ${err.message}`,
-            backLink: `/manager/device/${dbName_device}/read`
+            message: 'デバイス一覧の読み込み中にエラーが発生しました。',
+            backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`,
         });
     }
 });
+
 
 // 機器コレクション全削除
 //───────────────────────────────────

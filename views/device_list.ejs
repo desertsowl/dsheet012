@@ -1,8 +1,44 @@
 <div class="container">
     <h1 class="mb-2"><%= title %>
         <a href="<%= backLink %>" class="bi bi-arrow-left-circle-fill ms-2 fs-2" style="color: #0d6efe;"></a>
-</h1>
+    </h1>
     <% if (documents.length > 0) { %>
+        <!-- ページネーション（上部） -->
+        <nav class="mb-3">
+            <ul class="pagination pagination-sm justify-content-center">
+                <!-- 最初のページ -->
+                <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>" style="white-space: nowrap;">
+                    <a class="page-link px-2 py-1" href="<%= currentPage === 1 ? '#' : '?page=1&groupStart=1' %>">最初</a>
+                </li>
+
+                <!-- 前の5ページ -->
+                <% const previousSetStart = Math.max(1, groupStart - 5); %>
+                <li class="page-item <%= groupStart === 1 ? 'disabled' : '' %>">
+                    <a class="page-link px-2 py-1" href="<%= groupStart === 1 ? '#' : '?page=' + previousSetStart + '&groupStart=' + previousSetStart %>">&lt;</a>
+                </li>
+
+                <!-- ページ番号 -->
+                <% const pageGroup = Array.from({ length: 5 }, (_, i) => groupStart + i).filter(page => page <= lastPage); %>
+                <% pageGroup.forEach(page => { %>
+                    <li class="page-item <%= currentPage === page ? 'active' : '' %>">
+                        <a class="page-link px-2 py-1" href="?page=<%= page %>&groupStart=<%= groupStart %>"><%= page %></a>
+                    </li>
+                <% }); %>
+
+                <!-- 次の5ページ -->
+                <% const nextSetStart = Math.min(lastPage - 4, groupStart + 5); %>
+                <li class="page-item <%= groupStart > lastPage - 5 ? 'disabled' : '' %>">
+                    <a class="page-link px-2 py-1" href="<%= groupStart > lastPage - 5 ? '#' : '?page=' + nextSetStart + '&groupStart=' + nextSetStart %>">&gt;</a>
+                </li>
+
+                <!-- 最後のページ -->
+                <li class="page-item <%= currentPage === lastPage ? 'disabled' : '' %>" style="white-space: nowrap;">
+                    <a class="page-link px-2 py-1" href="<%= currentPage === lastPage ? '#' : '?page=' + lastPage + '&groupStart=' + Math.max(1, lastPage - 4) %>">最後</a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- データテーブル -->
         <div class="table-responsive">
             <table class="table table-bordered">
                 <thead>
@@ -24,41 +60,41 @@
             </table>
         </div>
 
-        <!-- ページネーションと全削除ボタン -->
-        <div class="d-flex justify-content-between align-items-center">
-            <!-- 全削除ボタン -->
-            <form action="/manager/device/<%= dbName_device %>/deleteAll" method="post" onsubmit="return confirm('すべての機器を削除してもよろしいですか？');">
-                <button type="submit" class="btn btn-danger">全削除</button>
-            </form>
+        <!-- ページネーション（下部） -->
+        <nav class="mt-3">
+            <ul class="pagination pagination-sm justify-content-center">
+                <!-- 最初のページ -->
+                <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>" style="white-space: nowrap;">
+                    <a class="page-link px-2 py-1" href="<%= currentPage === 1 ? '#' : '?page=1&groupStart=1' %>">最初</a>
+                </li>
 
-            <!-- ページネーション -->
-            <ul class="pagination">
-                <% if (hasPreviousPage) { %>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=1">最初</a>
+                <!-- 前の5ページ -->
+                <li class="page-item <%= groupStart === 1 ? 'disabled' : '' %>">
+                    <a class="page-link px-2 py-1" href="<%= groupStart === 1 ? '#' : '?page=' + previousSetStart + '&groupStart=' + previousSetStart %>">&lt;</a>
+                </li>
+
+                <!-- ページ番号 -->
+                <% pageGroup.forEach(page => { %>
+                    <li class="page-item <%= currentPage === page ? 'active' : '' %>">
+                        <a class="page-link px-2 py-1" href="?page=<%= page %>&groupStart=<%= groupStart %>"><%= page %></a>
                     </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<%= previousPage %>">&laquo;</a>
-                    </li>
-                <% } %>
-                <% for (let i = 1; i <= lastPage; i++) { %>
-                    <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                        <a class="page-link" href="?page=<%= i %>"><%= i %></a>
-                    </li>
-                <% } %>
-                <% if (hasNextPage) { %>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<%= nextPage %>">&raquo;</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<%= lastPage %>">最後</a>
-                    </li>
-                <% } %>
+                <% }); %>
+
+                <!-- 次の5ページ -->
+                <li class="page-item <%= groupStart > lastPage - 5 ? 'disabled' : '' %>">
+                    <a class="page-link px-2 py-1" href="<%= groupStart > lastPage - 5 ? '#' : '?page=' + nextSetStart + '&groupStart=' + nextSetStart %>">&gt;</a>
+                </li>
+
+                <!-- 最後のページ -->
+                <li class="page-item <%= currentPage === lastPage ? 'disabled' : '' %>" style="white-space: nowrap;">
+                    <a class="page-link px-2 py-1" href="<%= currentPage === lastPage ? '#' : '?page=' + lastPage + '&groupStart=' + Math.max(1, lastPage - 4) %>">最後</a>
+                </li>
             </ul>
-        </div>
+        </nav>
     <% } else { %>
+        <!-- データがない場合 -->
         <p>データがありません。</p>
-        <!-- 登録ボタン -->
         <a href="/manager/device/<%= dbName_device %>/device_import" class="btn btn-primary">登録</a>
     <% } %>
 </div>
+
