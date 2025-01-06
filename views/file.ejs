@@ -13,7 +13,7 @@
         <button class="btn btn-primary" id="copyButton">コピー</button>
     </div>
     <pre id="sourceCode" style="background: #f8f9fa; padding: 1rem; border: 1px solid #ddd; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;">
-<%- content.trim() %>
+<%- content.replace(/</g, '&lt;').replace(/>/g, '&gt;').trim() %>
     </pre>
 </main>
 
@@ -62,3 +62,4 @@
         document.body.removeChild(textArea);
     }
 </script>
+

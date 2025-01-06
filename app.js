@@ -277,42 +277,42 @@ app.post('/manager/device/:dbName_device/device_import', uploadCsv.single('csvfi
 //───────────────────────────────────
 app.get('/manager/device/:dbName_device/read', async (req, res) => {
     const { dbName_device } = req.params;
+    const { query = '', field = '' } = req.query;
     const currentPage = parseInt(req.query.page, 10) || 1;
-    const limit = 10; // 1ページあたりの件数
+    const limit = 10;
 
     try {
         const database = mongoose.connection.useDb('device');
         const devicesCollection = database.collection(dbName_device);
 
-        // 案件IDから案件名を取得
-        const jobId = dbName_device.replace(/_device$/, '');
-        const job = await Job.findById(jobId);
-
-        // 全ドキュメント数を取得
-        const totalDocuments = await devicesCollection.countDocuments();
+        // 検索条件の適用
+        const filter = query && field ? { [field]: { $regex: query, $options: 'i' } } : {};
+        const totalDocuments = await devicesCollection.countDocuments(filter);
         const lastPage = Math.ceil(totalDocuments / limit);
 
-        // ページグループの開始を計算
-        const groupStart = parseInt(req.query.groupStart, 10) || Math.max(1, currentPage - ((currentPage - 1) % 5));
-
-        // 表示するドキュメントを取得
-        const documents = await devicesCollection
-            .find()
+        // データを取得
+        const documents = await devicesCollection.find(filter)
             .skip((currentPage - 1) * limit)
             .limit(limit)
             .toArray();
 
-        // フィールド名を取得 (_idは除外)
-        const fields = documents.length > 0 ? Object.keys(documents[0]).filter((field) => field !== '_id') : [];
+        // フィールド名を取得
+        const fields = documents.length > 0 ? Object.keys(documents[0]).filter(f => f !== '_id') : [];
+        const jobId = dbName_device.replace(/_device$/, '');
+        const job = await Job.findById(jobId);
 
+        // テンプレートに渡すデータ
         res.render('device_list', {
-            title: `機器台帳 - ${job ? job.案件名 : '案件名不明'}`,
+            title: job ? `機器台帳 - ${job.案件名}` : '機器台帳 - 案件名不明',
             documents,
             fields,
             dbName_device,
             currentPage,
             lastPage,
-            groupStart,
+            groupStart: Math.max(1, currentPage - ((currentPage - 1) % 5)),
+            query,
+            selectedField: field,
+            isSearch: !!query, // 検索中かどうかを判断
             backLink: `/manager/job/${jobId}/info`,
         });
     } catch (err) {
@@ -320,7 +320,7 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
         res.render('result', {
             title: 'エラー',
             message: 'デバイス一覧の読み込み中にエラーが発生しました。',
-            backLink: `/manager/job/${dbName_device.replace(/_device$/, '')}/info`,
+            backLink: '/manager',
         });
     }
 });
@@ -1194,12 +1194,13 @@ app.get('/admin/src/download', (req, res) => {
             return res.status(404).send('ファイルが見つかりません。');
         }
 
-        // ファイル名を安全に設定
-        const safeFileName = path.basename(file);
+        // ファイル名に .txt を追加
+        const baseName = path.basename(file);
+        const downloadName = baseName.endsWith('.txt') ? baseName : `${baseName}.txt`;
 
-        // 適切なContent-Typeヘッダーを設定
-        res.setHeader('Content-Type', 'text/plain');
-        res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
+        // 適切なContent-TypeとContent-Dispositionヘッダーを設定
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
 
         // ファイルを送信
         fs.createReadStream(filePath)
@@ -1212,7 +1213,7 @@ app.get('/admin/src/download', (req, res) => {
         console.error('ダウンロードエラー:', err);
         res.status(500).send('ダウンロード中にエラーが発生しました。');
     }
-});	
+});
 
 //───────────────────────────────────
 // 6. エラーハンドリング
