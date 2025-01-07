@@ -68,7 +68,13 @@
         <!-- 詳細 -->
         <div class="mb-3">
             <label for="詳細" class="form-label">詳細</label>
-            <textarea name="item_details" id="詳細" rows="3" class="form-control" required><%= document ? document.詳細 : '' %></textarea>
+			<textarea 
+				name="item_details" 
+				id="詳細" 
+				rows="<%= document ? (document.詳細.match(/\r\n|\n/g) || []).length + 1 : 3 %>" 
+				class="form-control" 
+				required
+			><%= document ? document.詳細 : '' %></textarea>
         </div>
 
         <!-- 画像 -->
