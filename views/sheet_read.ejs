@@ -26,7 +26,7 @@
                     </tr>
                     <tr>
                         <td colspan="2" style="border-color: #000; text-align: left;">
-                            <%= doc['詳細'] %>
+							<%- doc['詳細'].replace(/\r\n|\n/g, '<br>') %>
                         </td>
                     </tr>
                     <% if (doc['画像']) { %>
