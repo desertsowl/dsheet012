@@ -285,25 +285,22 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
         const database = mongoose.connection.useDb('device');
         const devicesCollection = database.collection(dbName_device);
 
-        // 検索条件の適用
         const filter = query && field ? { [field]: { $regex: query, $options: 'i' } } : {};
         const totalDocuments = await devicesCollection.countDocuments(filter);
         const lastPage = Math.ceil(totalDocuments / limit);
 
-        // データを取得
         const documents = await devicesCollection.find(filter)
             .skip((currentPage - 1) * limit)
             .limit(limit)
             .toArray();
 
-        // フィールド名を取得
         const fields = documents.length > 0 ? Object.keys(documents[0]).filter(f => f !== '_id') : [];
         const jobId = dbName_device.replace(/_device$/, '');
         const job = await Job.findById(jobId);
+        const jobName = job ? job.案件名 : '案件名不明';
 
-        // テンプレートに渡すデータ
         res.render('device_list', {
-            title: job ? `機器台帳 - ${job.案件名}` : '機器台帳 - 案件名不明',
+            title: `機器台帳 - ${jobName}`,
             documents,
             fields,
             dbName_device,
@@ -312,8 +309,9 @@ app.get('/manager/device/:dbName_device/read', async (req, res) => {
             groupStart: Math.max(1, currentPage - ((currentPage - 1) % 5)),
             query,
             selectedField: field,
-            isSearch: !!query, // 検索中かどうかを判断
+            isSearch: !!query,
             backLink: `/manager/job/${jobId}/info`,
+            jobName
         });
     } catch (err) {
         console.error('Error loading device list:', err.message);
