@@ -21,7 +21,7 @@
                     </tr>
                     <tr>
                         <td colspan="2" style="border-color: #000; text-align: left;">
-                            <%= doc['内容'] %>
+							<%- doc['内容'].replace(/\r\n|\n/g, '<br>') %>
                         </td>
                     </tr>
                     <tr>

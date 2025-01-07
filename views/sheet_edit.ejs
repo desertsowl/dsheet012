@@ -62,7 +62,12 @@
         <!-- 内容 -->
         <div class="mb-3">
             <label for="内容" class="form-label">内容</label>
-            <textarea name="item_content" id="内容" rows="3" class="form-control" required><%= document ? document.内容 : '' %></textarea>
+            <textarea
+				name="item_content"
+				id="内容"
+				rows="<%= document ? (document.内容.match(/\r\n|\n/g) || []).length + 1 : 3 %>" 
+				class="form-control" required
+			><%= document ? document.内容 : '' %></textarea>
         </div>
 
         <!-- 詳細 -->
