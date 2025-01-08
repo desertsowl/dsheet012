@@ -24,8 +24,21 @@ if (!process.env.SECRET_KEY) {
     console.error('SECRET_KEY is not defined in .env file');
     process.exit(1); // 環境変数がない場合はアプリを終了
 }
+
+// Multerのストレージ設定
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'public/img/'); // 画像の保存先ディレクトリ
+    },
+    filename: (req, file, cb) => {
+        const fileExtension = path.extname(file.originalname); // 拡張子を取得
+        const uniqueName = `${Date.now()}${fileExtension}`; // 一意の名前を生成
+        cb(null, uniqueName); // ファイル名を設定
+    }
+});
+
 // ファイルアップロード設定
-const uploadImg = multer({ dest: 'public/img/' });
+const uploadImg = multer({ storage });	// Multerインスタンスを更新
 const uploadCsv = multer({ dest: 'csv/' });
 
 const app = express();
@@ -699,118 +712,29 @@ app.get('/manager/sheet/:id_sheet/edit', async (req, res) => {
     }
 });
 
-// チェックシート保存
-//──────────────────────────────
-app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async (req, res) => {
-    const { id_sheet } = req.params;
-    const { id, item_number, item_name, item_content, item_details } = req.body;
-    const dbName = 'sheet';
-
-    try {
-        const database = mongoose.connection.useDb(dbName);
-        const SheetModel = require('./models/Sheet');
-        const Sheet = SheetModel(dbName, id_sheet);
-
-        let item_image = '';
-
-        // アップロードされた画像を処理
-        if (req.file) {
-            const filePath = req.file.path;
-            const image = await jimp.read(filePath);
-
-            // 画像のピクセル数を計算
-            const pixelCount = image.bitmap.width * image.bitmap.height;
-
-            // 10万画素を超える場合はリサイズ
-            if (pixelCount > 100000) {
-                const scaleFactor = Math.sqrt(100000 / pixelCount);
-                const newWidth = Math.floor(image.bitmap.width * scaleFactor);
-                const newHeight = Math.floor(image.bitmap.height * scaleFactor);
-                await image.resize(newWidth, newHeight);
-            }
-
-            // 画像を保存
-            const outputDir = './public/img/';
-            if (!fs.existsSync(outputDir)) {
-                fs.mkdirSync(outputDir, { recursive: true });
-            }
-
-            // 拡張子を取得してファイル名に継承
-            const fileExtension = path.extname(req.file.originalname);
-            const outputFileName = `${Date.now()}${fileExtension}`;
-            const outputPath = `${outputDir}${outputFileName}`;
-            await image.writeAsync(outputPath);
-
-            item_image = `img/${outputFileName}`;
-        }
-
-        if (id) {
-            // 既存データの更新
-            await Sheet.findByIdAndUpdate(id, {
-                項番: parseInt(item_number, 10),
-                項目: item_name,
-                内容: item_content,
-                詳細: item_details,
-                ...(item_image && { 画像: item_image })
-            });
-        } else {
-            // 新規データの作成
-            await Sheet.create({
-                項番: parseInt(item_number, 10),
-                項目: item_name,
-                内容: item_content,
-                詳細: item_details,
-                画像: item_image
-            });
-        }
-
-        res.redirect(`/manager/sheet/${id_sheet}/read`);
-    } catch (err) {
-        console.error('Error saving sheet data:', err.message);
-        res.render('result', {
-            title: 'エラー',
-            message: 'データの保存に失敗しました。',
-            backLink: `/manager/sheet/${id_sheet}/edit`
-        });
-    }
-});
-
-
 // チェックシート削除
 //───────────────────────────────────
 app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image'), async (req, res) => {
-    console.log('Received action:', req.body.action); // デバッグ用ログ
-
     const { id_sheet } = req.params;
     const { id, action, item_number, item_name, item_content, item_details } = req.body;
-    const item_image = req.file ? `img/${req.file.filename}` : ''; // アップロードされた画像
-    const dbName = 'sheet';
 
     try {
-        const database = mongoose.connection.useDb(dbName);
+        const database = mongoose.connection.useDb('sheet');
         const SheetModel = require('./models/Sheet');
-        const Sheet = SheetModel(dbName, id_sheet);
+        const Sheet = SheetModel(database.name, id_sheet);
 
-        if (action === 'delete') {
-            // 削除処理
-            if (!id) throw new Error('削除対象のIDが指定されていません。');
-            await Sheet.findByIdAndDelete(id);
-            return res.redirect(`/manager/sheet/${id_sheet}/read`);
+        let item_image = '';
+
+        // アップロードされた画像が存在する場合
+        if (req.file) {
+            item_image = `img/${req.file.filename}`; // ファイル名を設定
         }
 
         if (action === 'save') {
             const itemNumber = parseInt(item_number, 10);
 
-            // 項番の重複チェック
-            const duplicateDocument = await Sheet.findOne({ 項番: itemNumber, _id: { $ne: id } });
-
-            if (duplicateDocument) {
-                // 重複が発生した場合、以降の項番をシフト
-                await shiftItemNumbers(Sheet, itemNumber);
-            }
-
             if (id) {
-                // 更新
+                // 更新処理
                 await Sheet.findByIdAndUpdate(id, {
                     項番: itemNumber,
                     項目: item_name,
@@ -828,10 +752,17 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
                     画像: item_image
                 });
             }
-            return res.redirect(`/manager/sheet/${id_sheet}/read`);
+            res.redirect(`/manager/sheet/${id_sheet}/read`);
+        } else if (action === 'delete') {
+            // 削除処理
+            if (!id) {
+                throw new Error('削除対象のIDが指定されていません。');
+            }
+            await Sheet.findByIdAndDelete(id);
+            res.redirect(`/manager/sheet/${id_sheet}/read`);
+        } else {
+            throw new Error('無効なアクションが指定されました。');
         }
-
-        throw new Error('無効なアクションが指定されました。');
     } catch (err) {
         console.error('Error handling save or delete:', err.message);
         res.render('result', {
