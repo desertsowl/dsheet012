@@ -83,13 +83,14 @@
         </div>
 
         <!-- 画像 -->
-        <div class="mb-3">
-            <label for="画像" class="form-label">画像</label>
-            <input type="file" name="item_image" id="画像" class="form-control">
-            <% if (document && document.画像) { %>
-                <p>現在の画像: <a href="/<%= document.画像 %>" target="_blank">表示</a></p>
-            <% } %>
-        </div>
+		<div class="mb-3">
+			<label for="画像" class="form-label">画像</label>
+			<input type="file" name="item_image" id="画像" class="form-control">
+			<% if (document && document.画像) { %>
+				<p>現在の画像:</p>
+				<img src="/<%= document.画像 %>" alt="現在の画像" style="max-width: 100%; height: auto;">
+			<% } %>
+		</div>
 
         <!-- ボタン -->
         <div class="d-flex gap-2">

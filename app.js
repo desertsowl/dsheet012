@@ -704,13 +704,45 @@ app.get('/manager/sheet/:id_sheet/edit', async (req, res) => {
 app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async (req, res) => {
     const { id_sheet } = req.params;
     const { id, item_number, item_name, item_content, item_details } = req.body;
-    const item_image = req.file ? `img/${req.file.filename}` : '';
     const dbName = 'sheet';
 
     try {
         const database = mongoose.connection.useDb(dbName);
         const SheetModel = require('./models/Sheet');
         const Sheet = SheetModel(dbName, id_sheet);
+
+        let item_image = '';
+
+        // アップロードされた画像を処理
+        if (req.file) {
+            const filePath = req.file.path;
+            const image = await jimp.read(filePath);
+
+            // 画像のピクセル数を計算
+            const pixelCount = image.bitmap.width * image.bitmap.height;
+
+            // 10万画素を超える場合はリサイズ
+            if (pixelCount > 100000) {
+                const scaleFactor = Math.sqrt(100000 / pixelCount);
+                const newWidth = Math.floor(image.bitmap.width * scaleFactor);
+                const newHeight = Math.floor(image.bitmap.height * scaleFactor);
+                await image.resize(newWidth, newHeight);
+            }
+
+            // 画像を保存
+            const outputDir = './public/img/';
+            if (!fs.existsSync(outputDir)) {
+                fs.mkdirSync(outputDir, { recursive: true });
+            }
+
+            // 拡張子を取得してファイル名に継承
+            const fileExtension = path.extname(req.file.originalname);
+            const outputFileName = `${Date.now()}${fileExtension}`;
+            const outputPath = `${outputDir}${outputFileName}`;
+            await image.writeAsync(outputPath);
+
+            item_image = `img/${outputFileName}`;
+        }
 
         if (id) {
             // 既存データの更新
@@ -742,6 +774,7 @@ app.post('/manager/sheet/:id_sheet/save', uploadImg.single('item_image'), async 
         });
     }
 });
+
 
 // チェックシート削除
 //───────────────────────────────────
