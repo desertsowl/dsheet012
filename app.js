@@ -798,7 +798,6 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
     }
 });
 
-
 // 項番の重複解消処理
 async function shiftItemNumbers(Sheet, startNumber) {
     try {
@@ -843,6 +842,46 @@ async function shiftItemNumbers(Sheet, startNumber) {
     }
 }
 
+// チェックシート画像削除
+//───────────────────────────────────
+// 画像削除
+app.get('/manager/sheet/:id_sheet/delete_image', async (req, res) => {
+    const { id_sheet } = req.params;
+    const { id } = req.query;
+
+    try {
+        const database = mongoose.connection.useDb('sheet');
+        const SheetModel = require('./models/Sheet');
+        const Sheet = SheetModel(database.name, id_sheet);
+
+        const document = await Sheet.findById(id);
+
+        if (!document) {
+            throw new Error('指定されたドキュメントが見つかりません。');
+        }
+
+        // ファイルを削除
+        if (document.画像) {
+            const filePath = `public/${document.画像}`;
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath); // ファイルを物理的に削除
+            }
+        }
+
+        // ドキュメントの画像フィールドをクリア
+        document.画像 = '';
+        await document.save();
+
+        res.redirect(`/manager/sheet/${id_sheet}/edit?id=${id}`);
+    } catch (err) {
+        console.error('Error deleting image:', err.message);
+        res.render('result', {
+            title: 'エラー',
+            message: '画像削除中にエラーが発生しました。',
+            backLink: `/manager/sheet/${id_sheet}/edit?id=${id}`
+        });
+    }
+});
 
 // チェックシート読込(CSV)
 //───────────────────────────────────
