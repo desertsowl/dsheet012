@@ -18,6 +18,7 @@ const cookieParser = require('cookie-parser'); // Cookieパーサーを追加
 const crypto = require('crypto'); // セッションID生成用
 const multer = require('multer');
 const csvParser = require('csv-parser');
+const { Jimp } = require("jimp");
 
 require('dotenv').config();
 if (!process.env.SECRET_KEY) {
@@ -712,7 +713,7 @@ app.get('/manager/sheet/:id_sheet/edit', async (req, res) => {
     }
 });
 
-// チェックシート削除
+// チェックシート保存|削除
 //───────────────────────────────────
 app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image'), async (req, res) => {
     const { id_sheet } = req.params;
@@ -727,7 +728,31 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
 
         // アップロードされた画像が存在する場合
         if (req.file) {
-            item_image = `img/${req.file.filename}`; // ファイル名を設定
+            const filePath = `public/img/${req.file.filename}`;
+
+            // jimpを利用した画像処理
+			Jimp.read(filePath)
+				.then(image => {
+					// 画像のピクセル数を計算
+					const pixelCount = image.bitmap.width * image.bitmap.height;
+
+					// 10万ピクセルを超える場合はリサイズ
+					if (pixelCount > 100000) {
+						const scaleFactor = Math.sqrt(100000 / pixelCount);
+						const newWidth = Math.floor(image.bitmap.width * scaleFactor);
+						const newHeight = Math.floor(image.bitmap.height * scaleFactor);
+						return image
+						  .resize({ width: newWidth, height: newHeight })
+						  .writeAsync(filePath);
+					}
+				})
+
+				.catch(err => {
+					console.error('Error processing image:', err);
+					throw new Error('画像処理中にエラーが発生しました。');
+				});
+
+            item_image = `img/${req.file.filename}`;
         }
 
         if (action === 'save') {
@@ -772,6 +797,7 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
         });
     }
 });
+
 
 // 項番の重複解消処理
 async function shiftItemNumbers(Sheet, startNumber) {
