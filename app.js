@@ -208,7 +208,6 @@ function authorize(allowedGroups) {
 }
 
 // コレクションの設定
-//───────────────────────────────────
 const collectionMapping = {
     job: { db: 'job', collection: 'job' },
     device: { db: 'device', collection: 'default' },
@@ -219,14 +218,12 @@ const collectionMapping = {
 };
 
 // ヘルパー関数
-//───────────────────────────────────
 const getCollectionConfig = (db) => collectionMapping[db];
 const renderMessage = (res, title, message, backLink = '/admin') => {
     res.render('result', { title, message, backLink });
 };
 
 // コレクションが存在するかチェックする関数
-//───────────────────────────────────
 const collectionExists = async (database, collectionName) => {
     try {
         const collections = await database.db.listCollections({ name: collectionName }).toArray();
@@ -236,131 +233,6 @@ const collectionExists = async (database, collectionName) => {
         return false;
     }
 };
-
-// 機器データ登録ページ
-app.post('/manager/device/:dbName_device/device_import', uploadCsv.single('csvfile'), async (req, res) => {
-    const { dbName_device } = req.params;
-    const filePath = req.file.path;
-
-    try {
-        const database = mongoose.connection.useDb('device');
-        const devicesCollection = database.collection(dbName_device);
-
-        const records = [];
-        let headers = null; // ヘッダー行を格納
-
-        await new Promise((resolve, reject) => {
-            fs.createReadStream(filePath)
-                .pipe(csvParser())
-                .on('headers', (headerRow) => {
-                    headers = headerRow; // ヘッダー行を取得
-                })
-                .on('data', (row) => {
-                    records.push(row); // データ行を格納
-                })
-                .on('end', async () => {
-                    try {
-                        // データを挿入
-                        await devicesCollection.insertMany(records);
-                        resolve();
-                    } catch (err) {
-                        reject(err);
-                    }
-                })
-                .on('error', (err) => {
-                    reject(err);
-                });
-        });
-
-        fs.unlinkSync(filePath); // 一時ファイルを削除
-
-        // データ挿入後にリダイレクト
-        res.redirect(`/manager/device/${dbName_device}/read`);
-    } catch (err) {
-        console.error('Error importing devices:', err);
-        fs.unlinkSync(filePath); // エラーが発生した場合も一時ファイルを削除
-        res.render('result', {
-            title: 'エラー',
-            message: `データのインポート中にエラーが発生しました。詳細: ${err.message}`,
-            backLink: `/manager/device/${dbName_device}/device_import`
-        });
-    }
-});
-
-// 機器コレクション読出
-//───────────────────────────────────
-app.get('/manager/device/:dbName_device/read', async (req, res) => {
-    const { dbName_device } = req.params;
-    const { query = '', field = '' } = req.query;
-    const currentPage = parseInt(req.query.page, 10) || 1;
-    const limit = 10;
-
-    try {
-        const database = mongoose.connection.useDb('device');
-        const devicesCollection = database.collection(dbName_device);
-
-        const filter = query && field ? { [field]: { $regex: query, $options: 'i' } } : {};
-        const totalDocuments = await devicesCollection.countDocuments(filter);
-        const lastPage = Math.ceil(totalDocuments / limit);
-
-        const documents = await devicesCollection.find(filter)
-            .skip((currentPage - 1) * limit)
-            .limit(limit)
-            .toArray();
-
-        const fields = documents.length > 0 ? Object.keys(documents[0]).filter(f => f !== '_id') : [];
-        const jobId = dbName_device.replace(/_device$/, '');
-        const job = await Job.findById(jobId);
-        const jobName = job ? job.案件名 : '案件名不明';
-
-        res.render('device_list', {
-            title: `機器台帳 - ${jobName}`,
-            documents,
-            fields,
-            dbName_device,
-            currentPage,
-            lastPage,
-            groupStart: Math.max(1, currentPage - ((currentPage - 1) % 5)),
-            query,
-            selectedField: field,
-            isSearch: !!query,
-            backLink: `/manager/job/${jobId}/info`,
-            jobName
-        });
-    } catch (err) {
-        console.error('Error loading device list:', err.message);
-        res.render('result', {
-            title: 'エラー',
-            message: 'デバイス一覧の読み込み中にエラーが発生しました。',
-            backLink: '/manager',
-        });
-    }
-});
-
-
-// 機器コレクション全削除
-//───────────────────────────────────
-app.post('/manager/device/:dbName_device/deleteAll', async (req, res) => {
-    const { dbName_device } = req.params;
-
-    try {
-        const database = mongoose.connection.useDb('device');
-        const devicesCollection = database.collection(dbName_device);
-
-        // コレクション内のすべてのデータを削除
-        await devicesCollection.deleteMany({});
-
-        // 全削除後にデバイス一覧ページにリダイレクト
-        res.redirect(`/manager/device/${dbName_device}/read`);
-    } catch (err) {
-        console.error('Error deleting all devices:', err);
-        res.render('result', {
-            title: 'エラー',
-            message: `データの全削除中にエラーが発生しました。詳細: ${err.message}`,
-            backLink: `/manager/device/${dbName_device}/read`
-        });
-    }
-});
 
 //───────────────────────────────────
 // 5. ルーティング
@@ -634,6 +506,157 @@ app.get('/logout', (req, res) => {
 // 5-2. データベース操作
 //──────────────────────────────
 
+// 機器データ登録ページ(保存)
+//───────────────────────────────────
+app.post('/manager/device/:dbName_device/device_import', uploadCsv.single('csvfile'), async (req, res) => {
+    const { dbName_device } = req.params;
+    const filePath = req.file.path;
+
+    try {
+        const database = mongoose.connection.useDb('device');
+        const devicesCollection = database.collection(dbName_device);
+
+        const records = [];
+        let headers = null; // ヘッダー行を格納
+
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csvParser())
+                .on('headers', (headerRow) => {
+                    headers = headerRow; // ヘッダー行を取得
+                })
+                .on('data', (row) => {
+                    records.push(row); // データ行を格納
+                })
+                .on('end', async () => {
+                    try {
+                        // データを挿入
+                        await devicesCollection.insertMany(records);
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    }
+                })
+                .on('error', (err) => {
+                    reject(err);
+                });
+        });
+
+        fs.unlinkSync(filePath); // 一時ファイルを削除
+
+        // データ挿入後にリダイレクト
+        res.redirect(`/manager/device/${dbName_device}/read`);
+    } catch (err) {
+        console.error('Error importing devices:', err);
+        fs.unlinkSync(filePath); // エラーが発生した場合も一時ファイルを削除
+        res.render('result', {
+            title: 'エラー',
+            message: `データのインポート中にエラーが発生しました。詳細: ${err.message}`,
+            backLink: `/manager/device/${dbName_device}/device_import`
+        });
+    }
+});
+
+// 機器コレクション読出
+//───────────────────────────────────
+app.get('/manager/device/:dbName_device/read', async (req, res) => {
+    const { dbName_device } = req.params;
+    const { query = '', field = '' } = req.query;
+    const currentPage = parseInt(req.query.page, 10) || 1;
+    const limit = 10;
+
+    try {
+        const database = mongoose.connection.useDb('device');
+        const devicesCollection = database.collection(dbName_device);
+
+        const filter = query && field ? { [field]: { $regex: query, $options: 'i' } } : {};
+        const totalDocuments = await devicesCollection.countDocuments(filter);
+        const lastPage = Math.ceil(totalDocuments / limit);
+
+        const documents = await devicesCollection.find(filter)
+            .skip((currentPage - 1) * limit)
+            .limit(limit)
+            .toArray();
+
+        const fields = documents.length > 0 ? Object.keys(documents[0]).filter(f => f !== '_id') : [];
+        const jobId = dbName_device.replace(/_device$/, '');
+        const job = await Job.findById(jobId);
+        const jobName = job ? job.案件名 : '案件名不明';
+
+        res.render('device_list', {
+            title: `機器台帳 - ${jobName}`,
+            documents,
+            fields,
+            dbName_device,
+            currentPage,
+            lastPage,
+            groupStart: Math.max(1, currentPage - ((currentPage - 1) % 5)),
+            query,
+            selectedField: field,
+            isSearch: !!query,
+            backLink: `/manager/job/${jobId}/info`,
+            jobName
+        });
+    } catch (err) {
+        console.error('Error loading device list:', err.message);
+        res.render('result', {
+            title: 'エラー',
+            message: 'デバイス一覧の読み込み中にエラーが発生しました。',
+            backLink: '/manager',
+        });
+    }
+});
+
+// 機器リスト読込(csv)
+//───────────────────────────────────
+// デバイス登録ページを表示
+app.get('/manager/device/:dbName_device/device_import', async (req, res) => {
+    const { dbName_device } = req.params;
+
+    try {
+        // 必要に応じてデバイスの情報や案件名を取得
+        const jobId = dbName_device.replace(/_device$/, '');
+        const job = await Job.findById(jobId);
+
+        res.render('device_import', {
+            title: `${job ? job.案件名 : '案件名不明'} - 機器登録`,
+            dbName_device,
+            backLink: `/manager/device/${dbName_device}/read`
+        });
+    } catch (err) {
+        console.error('Error loading device import page:', err.message);
+        res.render('result', {
+            title: 'エラー',
+            message: 'デバイス登録ページの読み込み中にエラーが発生しました。',
+            backLink: `/manager/device/${dbName_device}/read`
+        });
+    }
+});
+
+// 機器コレクション全削除
+//───────────────────────────────────
+app.post('/manager/device/:dbName_device/deleteAll', async (req, res) => {
+    const { dbName_device } = req.params;
+
+    try {
+        const database = mongoose.connection.useDb('device');
+        const devicesCollection = database.collection(dbName_device);
+
+        // コレクション内のすべてのデータを削除
+        await devicesCollection.deleteMany({});
+
+        // 全削除後にデバイス一覧ページにリダイレクト
+        res.redirect(`/manager/device/${dbName_device}/read`);
+    } catch (err) {
+        console.error('Error deleting all devices:', err);
+        res.render('result', {
+            title: 'エラー',
+            message: `データの全削除中にエラーが発生しました。詳細: ${err.message}`,
+            backLink: `/manager/device/${dbName_device}/read`
+        });
+    }
+});
+
 // チェックシート読込ページ
 //──────────────────────────────
 app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
@@ -905,7 +928,6 @@ app.post('/manager/sheet/:id_sheet/renumber', async (req, res) => {
     }
 });
 
-
 // チェックシート画像削除
 //───────────────────────────────────
 app.get('/manager/sheet/:id_sheet/delete_image', async (req, res) => {
@@ -945,6 +967,37 @@ app.get('/manager/sheet/:id_sheet/delete_image', async (req, res) => {
         });
     }
 });
+
+// チェックシート読込(CSV)
+//───────────────────────────────────
+// チェックシート読込ページ
+app.get('/manager/sheet/:id_sheet/import', async (req, res) => {
+    const { id_sheet } = req.params;
+
+    try {
+        const database = mongoose.connection.useDb('sheet');
+        const SheetModel = require('./models/Sheet');
+        const Sheet = SheetModel('sheet', id_sheet);
+
+        // 案件名を取得
+        const jobId = id_sheet.replace(/_sheet$/, '');
+        const job = await Job.findById(jobId);
+
+        res.render('sheet_import', {
+            title: `${job ? job.案件名 : '案件名不明'} - チェックシート読込`,
+            id_sheet,
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    } catch (err) {
+        console.error('Error loading sheet import page:', err.message);
+        res.render('result', {
+            title: 'エラー',
+            message: 'チェックシート読込ページの読み込み中にエラーが発生しました。',
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    }
+});
+
 
 // チェックシート読込(CSV)
 //───────────────────────────────────
@@ -1016,9 +1069,9 @@ app.get('/manager/sheet/:id_sheet/export', async (req, res) => {
         const documents = await Sheet.find().lean();
 
         // CSV生成
-        let csvContent = '項番,項目,内容,詳細\n';
+        let csvContent = '項番,項目,内容,詳細,画像\n'; // 画像フィールドを追加
         documents.forEach(doc => {
-            csvContent += `"${doc.項番}","${doc.項目}","${doc.内容}","${doc.詳細}"\n`;
+            csvContent += `"${doc.項番}","${doc.項目}","${doc.内容}","${doc.詳細}","${doc.画像}"\n`;
         });
 
         res.setHeader('Content-Type', 'text/csv');
@@ -1033,6 +1086,7 @@ app.get('/manager/sheet/:id_sheet/export', async (req, res) => {
         });
     }
 });
+
 
 // チェックシート全削除
 //───────────────────────────────────
@@ -1051,32 +1105,6 @@ app.post('/manager/sheet/:id_sheet/deleteAll', async (req, res) => {
             title: 'エラー',
             message: '全削除に失敗しました。',
             backLink: `/manager/sheet/${id_sheet}/read`
-        });
-    }
-});
-
-// チェックシート読込(csv)
-//───────────────────────────────────
-// デバイス登録ページを表示
-app.get('/manager/device/:dbName_device/device_import', async (req, res) => {
-    const { dbName_device } = req.params;
-
-    try {
-        // 必要に応じてデバイスの情報や案件名を取得
-        const jobId = dbName_device.replace(/_device$/, '');
-        const job = await Job.findById(jobId);
-
-        res.render('device_import', {
-            title: `${job ? job.案件名 : '案件名不明'} - 機器登録`,
-            dbName_device,
-            backLink: `/manager/device/${dbName_device}/read`
-        });
-    } catch (err) {
-        console.error('Error loading device import page:', err.message);
-        res.render('result', {
-            title: 'エラー',
-            message: 'デバイス登録ページの読み込み中にエラーが発生しました。',
-            backLink: `/manager/device/${dbName_device}/read`
         });
     }
 });
