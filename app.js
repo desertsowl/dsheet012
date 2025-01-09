@@ -851,7 +851,6 @@ async function shiftItemNumbers(Sheet, startNumber) {
 
 // チェックシート再付番
 //───────────────────────────────────
-// 再付番処理
 app.post('/manager/sheet/:id_sheet/renumber', async (req, res) => {
     const { id_sheet } = req.params;
 
@@ -882,9 +881,14 @@ app.post('/manager/sheet/:id_sheet/renumber', async (req, res) => {
             expectedNumber++;
         }
 
+        // 最新の項番の範囲を取得
+        const updatedDocuments = await Sheet.find().sort({ 項番: 1 }).lean();
+        const firstNumber = updatedDocuments[0].項番;
+        const lastNumber = updatedDocuments[updatedDocuments.length - 1].項番;
+
         const message = hasGap
-            ? `再付番を行いました(${documents[0].項番}〜${documents[documents.length - 1].項番})`
-            : `空き番号はありませんでした(${documents[0].項番}〜${documents[documents.length - 1].項番})`;
+            ? `再付番を行いました(${firstNumber}〜${lastNumber})`
+            : `空き番号はありませんでした(${firstNumber}〜${lastNumber})`;
 
         res.render('result', {
             title: '再付番完了',
@@ -900,7 +904,6 @@ app.post('/manager/sheet/:id_sheet/renumber', async (req, res) => {
         });
     }
 });
-
 
 
 // チェックシート画像削除
