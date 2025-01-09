@@ -849,9 +849,62 @@ async function shiftItemNumbers(Sheet, startNumber) {
     }
 }
 
+// チェックシート再付番
+//───────────────────────────────────
+// 再付番処理
+app.post('/manager/sheet/:id_sheet/renumber', async (req, res) => {
+    const { id_sheet } = req.params;
+
+    try {
+        const database = mongoose.connection.useDb('sheet');
+        const SheetModel = require('./models/Sheet');
+        const Sheet = SheetModel('sheet', id_sheet);
+
+        // ドキュメントを項番の昇順で取得
+        const documents = await Sheet.find().sort({ 項番: 1 }).lean();
+        if (documents.length === 0) {
+            return res.render('result', {
+                title: '情報',
+                message: 'データが存在しません。',
+                backLink: `/manager/sheet/${id_sheet}/read`
+            });
+        }
+
+        // 再付番
+        let hasGap = false;
+        let expectedNumber = 1;
+
+        for (const doc of documents) {
+            if (doc.項番 !== expectedNumber) {
+                hasGap = true;
+                await Sheet.findByIdAndUpdate(doc._id, { 項番: expectedNumber });
+            }
+            expectedNumber++;
+        }
+
+        const message = hasGap
+            ? `再付番を行いました(${documents[0].項番}〜${documents[documents.length - 1].項番})`
+            : `空き番号はありませんでした(${documents[0].項番}〜${documents[documents.length - 1].項番})`;
+
+        res.render('result', {
+            title: '再付番完了',
+            message,
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    } catch (err) {
+        console.error('Error during renumbering:', err.message);
+        res.render('result', {
+            title: 'エラー',
+            message: '再付番中にエラーが発生しました。',
+            backLink: `/manager/sheet/${id_sheet}/read`
+        });
+    }
+});
+
+
+
 // チェックシート画像削除
 //───────────────────────────────────
-// 画像削除
 app.get('/manager/sheet/:id_sheet/delete_image', async (req, res) => {
     const { id_sheet } = req.params;
     const { id } = req.query;

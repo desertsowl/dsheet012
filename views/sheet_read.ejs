@@ -41,14 +41,18 @@
         </div>
     <% } %>
 
-    <div class="mt-3 d-flex gap-2">
-        <form action="/manager/sheet/<%= id_sheet %>/deleteAll" method="post" onsubmit="return confirm('すべてのデータを削除してもよろしいですか？');">
-            <button type="submit" class="btn btn-danger">全削除</button>
-        </form>
-        <form action="/manager/sheet/<%= id_sheet %>/export" method="get">
-            <button type="submit" class="btn btn-secondary">保存</button>
-        </form>
-        <a href="/manager/sheet/<%= id_sheet %>/import" class="btn btn-secondary">読込</a>
-        <a href="/manager/sheet/<%= id_sheet %>/edit" class="btn btn-primary">追加</a>
-    </div>
+	<div class="mt-3 d-flex gap-2">
+		<form action="/manager/sheet/<%= id_sheet %>/deleteAll" method="post" onsubmit="return confirm('すべてのデータを削除してもよろしいですか？');">
+			<button type="submit" class="btn btn-danger">全削除</button>
+		</form>
+		<form action="/manager/sheet/<%= id_sheet %>/renumber" method="post" onsubmit="return confirm('項番を再付番しますか？');">
+			<button type="submit" class="btn btn-warning">再付番</button>
+		</form>
+		<form action="/manager/sheet/<%= id_sheet %>/export" method="get">
+			<button type="submit" class="btn btn-secondary">保存</button>
+		</form>
+		<a href="/manager/sheet/<%= id_sheet %>/import" class="btn btn-secondary">読込</a>
+		<a href="/manager/sheet/<%= id_sheet %>/edit" class="btn btn-primary">追加</a>
+	</div>
+
 </div>
