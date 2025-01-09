@@ -758,6 +758,13 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
         if (action === 'save') {
             const itemNumber = parseInt(item_number, 10);
 
+			// 項番の重複チェック
+			const duplicateDocument = await Sheet.findOne({ 項番: itemNumber, _id: { $ne: id } });
+			if (duplicateDocument) {
+				// 重複が発生した場合、以降の項番をシフト
+				await shiftItemNumbers(Sheet, itemNumber);
+			}
+
             if (id) {
                 // 更新処理
                 await Sheet.findByIdAndUpdate(id, {
