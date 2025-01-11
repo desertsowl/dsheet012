@@ -39,7 +39,10 @@ const storage = multer.diskStorage({
 });
 
 // ファイルアップロード設定
-const uploadImg = multer({ storage });	// Multerインスタンスを更新
+// Multerインスタンスを更新,最大5枚の画像を許可
+const uploadImg = multer({ storage }).array('item_image', 5);
+
+
 const uploadCsv = multer({ dest: 'csv/' });
 
 const app = express();
@@ -240,6 +243,154 @@ const collectionExists = async (database, collectionName) => {
 // ユーザー認証、DB操作、ビューのレンダリングなどを実行
 //───────────────────────────────────
 
+//───────────────────────────────────
+// 5-1. ログイン関連
+//───────────────────────────────────
+
+// ホームページをログインページにリダイレクト
+//───────────────────────────────────
+app.get('/', (req, res) => {
+    res.redirect('/login');
+});
+
+// ログイン処理
+//───────────────────────────────────
+app.get('/login', (req, res) => {
+    res.render('login', { title: 'ログイン' });
+});
+
+// ログイン処理(POST)
+//───────────────────────────────────
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        const user = await User.findOne({ username: username.toLowerCase() });
+        if (!user || !user.group) {
+            return res.render('result', {
+                title: 'ログインエラー',
+                message: 'ユーザー名が存在しないか、グループが未設定です。',
+                backLink: '/login'
+            });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.render('result', {
+                title: 'ログインエラー',
+                message: 'パスワードが間違っています。',
+                backLink: '/login'
+            });
+        }
+
+        // CookieにセッションIDを保存 (Cookieベースの場合)
+        const sessionId = crypto.randomBytes(16).toString('hex'); // ランダムなセッションID生成
+        sessions[sessionId] = { userId: user._id, createdAt: Date.now() }; // セッションデータに保存
+        res.cookie('sessionId', sessionId, {
+            httpOnly: true,
+            maxAge: 3600000 // 1時間有効
+        });
+
+        // ユーザーグループに基づくリダイレクト
+        if (user.group === 8) {
+            res.redirect('/admin');
+        } else if (user.group === 4) {
+            res.redirect('/manager');
+        } else if (user.group === 2) {
+            res.redirect('/worker');
+        } else {
+            res.status(403).send('権限がありません');
+        }
+    } catch (err) {
+        console.error('Error during login:', err);
+        res.render('result', {
+            title: 'サーバーエラー',
+            message: 'サーバーでエラーが発生しました。再度ログインしてください。',
+            backLink: '/login'
+        });
+    }
+});
+
+// ログアウト処理
+//───────────────────────────────────
+app.get('/logout', (req, res) => {
+    const sessionId = req.cookies.sessionId;
+    if (sessionId) {
+        delete sessions[sessionId]; // セッションを削除
+        res.clearCookie('sessionId'); // Cookieを削除
+    }
+    res.redirect('/login');
+});
+
+// 管理者専用ページ (/admin)
+//───────────────────────────────────
+app.get('/admin', authorize([8]), (req, res) => {
+    res.render('admin', { title: '管理者ページ' });
+});
+
+// 管理者および監督者がアクセス可能なページ (/manager)
+//───────────────────────────────────
+app.get('/manager', authorize([8, 4]), async (req, res) => {
+    try {
+        const jobs = await Job.find(); // models/Jobを利用
+        res.render('manager', { title: '監督者ページ', jobs });
+    } catch (err) {
+        console.error('Error fetching jobs:', err);
+        res.status(500).send('案件の取得に失敗しました');
+    }
+});
+
+// 管理者、監督者、作業者がアクセス可能なページ (/worker)
+//───────────────────────────────────
+app.get('/worker', authorize([8, 4, 2]), (req, res) => {
+    res.render('worker', { title: '作業者ページ' });
+});
+
+// 例: 管理者と監督者がアクセス可能なリソース
+app.get('/manager/resource', authorize([8, 4]), (req, res) => {
+    res.send('このリソースは管理者と監督者がアクセスできます。');
+});
+
+// システムステータスページ
+//───────────────────────────────────
+app.get('/admin/status/system', async (req, res) => {
+    try {
+        const dbStatus = mongoose.connection.readyState === 1 ? '接続中' : '未接続';
+        const databases = ['job', 'device', 'sheet', 'kitting', 'staff', 'systemlog'];
+
+        // 各データベースのコレクション一覧を取得
+        const collectionInfo = {};
+        for (const dbName of databases) {
+            const db = mongoose.connection.useDb(dbName);
+            const collections = await db.db.listCollections().toArray();
+            collectionInfo[dbName] = collections.map(col => col.name);
+        }
+
+        const systemStatus = {
+            serverTime: new Date(),
+            dbStatus: dbStatus,
+            dbName: mongoose.connection.name,
+            collections: collectionInfo
+        };
+
+        res.render('status_system', {
+            title: 'システムステータス',
+            status: systemStatus
+        });
+    } catch (err) {
+        console.error('Error fetching system status:', err);
+        res.render('result', {
+            title: 'エラー',
+            message: `システムステータスの取得に失敗しました。詳細: ${err.message}`,
+            backLink: '/admin'
+        });
+    }
+});
+
+//───────────────────────────────────
+// 5-2. 案件資料
+//───────────────────────────────────
+
 // 案件資料ページ
 //───────────────────────────────────
 app.get('/manager/job/:id/info', async (req, res) => {
@@ -359,151 +510,8 @@ app.post('/manager/job/:id/edit', async (req, res) => {
     }
 });
 
-// 管理者専用ページ (/admin)
-//───────────────────────────────────
-app.get('/admin', authorize([8]), (req, res) => {
-    res.render('admin', { title: '管理者ページ' });
-});
-
-// 管理者および監督者がアクセス可能なページ (/manager)
-//───────────────────────────────────
-app.get('/manager', authorize([8, 4]), async (req, res) => {
-    try {
-        const jobs = await Job.find(); // models/Jobを利用
-        res.render('manager', { title: '監督者ページ', jobs });
-    } catch (err) {
-        console.error('Error fetching jobs:', err);
-        res.status(500).send('案件の取得に失敗しました');
-    }
-});
-
-// 管理者、監督者、作業者がアクセス可能なページ (/worker)
-//───────────────────────────────────
-app.get('/worker', authorize([8, 4, 2]), (req, res) => {
-    res.render('worker', { title: '作業者ページ' });
-});
-
-// 例: 管理者と監督者がアクセス可能なリソース
-app.get('/manager/resource', authorize([8, 4]), (req, res) => {
-    res.send('このリソースは管理者と監督者がアクセスできます。');
-});
-
-// システムステータスページ
-//───────────────────────────────────
-app.get('/admin/status/system', async (req, res) => {
-    try {
-        const dbStatus = mongoose.connection.readyState === 1 ? '接続中' : '未接続';
-        const databases = ['job', 'device', 'sheet', 'kitting', 'staff', 'systemlog'];
-
-        // 各データベースのコレクション一覧を取得
-        const collectionInfo = {};
-        for (const dbName of databases) {
-            const db = mongoose.connection.useDb(dbName);
-            const collections = await db.db.listCollections().toArray();
-            collectionInfo[dbName] = collections.map(col => col.name);
-        }
-
-        const systemStatus = {
-            serverTime: new Date(),
-            dbStatus: dbStatus,
-            dbName: mongoose.connection.name,
-            collections: collectionInfo
-        };
-
-        res.render('status_system', {
-            title: 'システムステータス',
-            status: systemStatus
-        });
-    } catch (err) {
-        console.error('Error fetching system status:', err);
-        res.render('result', {
-            title: 'エラー',
-            message: `システムステータスの取得に失敗しました。詳細: ${err.message}`,
-            backLink: '/admin'
-        });
-    }
-});
-
-//───────────────────────────────────
-// 5-1. ログイン関連
-//───────────────────────────────────
-
-// ホームページをログインページにリダイレクト
-//───────────────────────────────────
-app.get('/', (req, res) => {
-    res.redirect('/login');
-});
-
-// ログイン処理
-//───────────────────────────────────
-app.get('/login', (req, res) => {
-    res.render('login', { title: 'ログイン' });
-});
-
-// ログイン処理(POST)
-//───────────────────────────────────
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-
-    try {
-        const user = await User.findOne({ username: username.toLowerCase() });
-        if (!user || !user.group) {
-            return res.render('result', {
-                title: 'ログインエラー',
-                message: 'ユーザー名が存在しないか、グループが未設定です。',
-                backLink: '/login'
-            });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.render('result', {
-                title: 'ログインエラー',
-                message: 'パスワードが間違っています。',
-                backLink: '/login'
-            });
-        }
-
-        // CookieにセッションIDを保存 (Cookieベースの場合)
-        const sessionId = crypto.randomBytes(16).toString('hex'); // ランダムなセッションID生成
-        sessions[sessionId] = { userId: user._id, createdAt: Date.now() }; // セッションデータに保存
-        res.cookie('sessionId', sessionId, {
-            httpOnly: true,
-            maxAge: 3600000 // 1時間有効
-        });
-
-        // ユーザーグループに基づくリダイレクト
-        if (user.group === 8) {
-            res.redirect('/admin');
-        } else if (user.group === 4) {
-            res.redirect('/manager');
-        } else if (user.group === 2) {
-            res.redirect('/worker');
-        } else {
-            res.status(403).send('権限がありません');
-        }
-    } catch (err) {
-        console.error('Error during login:', err);
-        res.render('result', {
-            title: 'サーバーエラー',
-            message: 'サーバーでエラーが発生しました。再度ログインしてください。',
-            backLink: '/login'
-        });
-    }
-});
-
-// ログアウト処理
-//───────────────────────────────────
-app.get('/logout', (req, res) => {
-    const sessionId = req.cookies.sessionId;
-    if (sessionId) {
-        delete sessions[sessionId]; // セッションを削除
-        res.clearCookie('sessionId'); // Cookieを削除
-    }
-    res.redirect('/login');
-});
-
-// 5-2. データベース操作
+//──────────────────────────────
+// 5-3. 機器台帳
 //──────────────────────────────
 
 // 機器データ登録ページ(保存)
@@ -657,6 +665,11 @@ app.post('/manager/device/:dbName_device/deleteAll', async (req, res) => {
     }
 });
 
+
+//──────────────────────────────
+// 5-4. チェックシート設計
+//──────────────────────────────
+
 // チェックシート読込ページ
 //──────────────────────────────
 app.get('/manager/sheet/:id_sheet/read', async (req, res) => {
@@ -736,9 +749,9 @@ app.get('/manager/sheet/:id_sheet/edit', async (req, res) => {
     }
 });
 
-// チェックシート保存|削除
+// チェックシート保存 | 削除
 //───────────────────────────────────
-app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image'), async (req, res) => {
+app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg, async (req, res) => {
     const { id_sheet } = req.params;
     const { id, action, item_number, item_name, item_content, item_details } = req.body;
 
@@ -747,56 +760,23 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
         const SheetModel = require('./models/Sheet');
         const Sheet = SheetModel(database.name, id_sheet);
 
-        let item_image = '';
-
-        // アップロードされた画像が存在する場合
-        if (req.file) {
-            const filePath = `public/img/${req.file.filename}`;
-
-            // jimpを利用した画像処理
-			Jimp.read(filePath)
-				.then(image => {
-					// 画像のピクセル数を計算
-					const pixelCount = image.bitmap.width * image.bitmap.height;
-
-					// 10万ピクセルを超える場合はリサイズ
-					if (pixelCount > 100000) {
-						const scaleFactor = Math.sqrt(100000 / pixelCount);
-						const newWidth = Math.floor(image.bitmap.width * scaleFactor);
-						const newHeight = Math.floor(image.bitmap.height * scaleFactor);
-						return image
-						  .resize({ width: newWidth, height: newHeight })
-						  .writeAsync(filePath);
-					}
-				})
-
-				.catch(err => {
-					console.error('Error processing image:', err);
-					throw new Error('画像処理中にエラーが発生しました。');
-				});
-
-            item_image = `img/${req.file.filename}`;
+        let uploadedImages = [];
+        if (req.files) {
+            uploadedImages = req.files.map(file => `img/${file.filename}`);
         }
 
         if (action === 'save') {
             const itemNumber = parseInt(item_number, 10);
 
-			// 項番の重複チェック
-			const duplicateDocument = await Sheet.findOne({ 項番: itemNumber, _id: { $ne: id } });
-			if (duplicateDocument) {
-				// 重複が発生した場合、以降の項番をシフト
-				await shiftItemNumbers(Sheet, itemNumber);
-			}
-
             if (id) {
                 // 更新処理
-                await Sheet.findByIdAndUpdate(id, {
-                    項番: itemNumber,
-                    項目: item_name,
-                    内容: item_content,
-                    詳細: item_details,
-                    ...(item_image && { 画像: item_image })
-                });
+                const document = await Sheet.findById(id);
+                document.画像 = [...(document.画像 || []), ...uploadedImages];
+                document.項番 = itemNumber;
+                document.項目 = item_name;
+                document.内容 = item_content;
+                document.詳細 = item_details;
+                await document.save();
             } else {
                 // 新規作成
                 await Sheet.create({
@@ -804,15 +784,13 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
                     項目: item_name,
                     内容: item_content,
                     詳細: item_details,
-                    画像: item_image
+                    画像: uploadedImages
                 });
             }
+
             res.redirect(`/manager/sheet/${id_sheet}/read`);
         } else if (action === 'delete') {
-            // 削除処理
-            if (!id) {
-                throw new Error('削除対象のIDが指定されていません。');
-            }
+            if (!id) throw new Error('削除対象のIDが指定されていません。');
             await Sheet.findByIdAndDelete(id);
             res.redirect(`/manager/sheet/${id_sheet}/read`);
         } else {
@@ -827,6 +805,7 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg.single('item_image
         });
     }
 });
+
 
 // 項番の重複解消処理
 async function shiftItemNumbers(Sheet, startNumber) {
@@ -970,7 +949,6 @@ app.get('/manager/sheet/:id_sheet/delete_image', async (req, res) => {
 
 // チェックシート読込(CSV)
 //───────────────────────────────────
-// チェックシート読込ページ
 app.get('/manager/sheet/:id_sheet/import', async (req, res) => {
     const { id_sheet } = req.params;
 
@@ -998,8 +976,7 @@ app.get('/manager/sheet/:id_sheet/import', async (req, res) => {
     }
 });
 
-
-// チェックシート読込(CSV)
+// チェックシート保存(CSV)
 //───────────────────────────────────
 app.post('/manager/sheet/:id_sheet/import', uploadCsv.single('csvfile'), async (req, res) => {
     const { id_sheet } = req.params;
@@ -1009,9 +986,6 @@ app.post('/manager/sheet/:id_sheet/import', uploadCsv.single('csvfile'), async (
         const database = mongoose.connection.useDb('sheet');
         const Sheet = require('./models/Sheet')('sheet', id_sheet);
 
-        // スキーマに基づく必須フィールド
-        const requiredFields = ['項番', '項目', '内容', '詳細'];
-
         const records = [];
         let isHeaderValid = false;
 
@@ -1020,20 +994,26 @@ app.post('/manager/sheet/:id_sheet/import', uploadCsv.single('csvfile'), async (
                 .pipe(csvParser())
                 .on('data', (row) => {
                     if (!isHeaderValid) {
-                        // ヘッダー行の検証
                         const headers = Object.keys(row);
-                        isHeaderValid = requiredFields.every(field => headers.includes(field));
-
+                        isHeaderValid = ['項番', '項目', '内容', '詳細', '画像'].every(field => headers.includes(field));
                         if (!isHeaderValid) {
-                            reject(new Error(`CSVファイルのヘッダーが不正です。必要なフィールド: ${requiredFields.join(', ')}`));
+                            reject(new Error('CSVファイルのヘッダーが不正です。'));
                             return;
                         }
                     }
-                    records.push(row);
+
+                    // 空の画像フィールドを空配列に変換
+                    const images = row['画像'] ? row['画像'].split(',').filter(img => img.trim() !== '') : [];
+                    records.push({
+                        項番: parseInt(row['項番'], 10),
+                        項目: row['項目'],
+                        内容: row['内容'],
+                        詳細: row['詳細'],
+                        画像: images
+                    });
                 })
                 .on('end', async () => {
                     try {
-                        // データ挿入
                         await Sheet.insertMany(records);
                         resolve();
                     } catch (err) {
@@ -1049,10 +1029,10 @@ app.post('/manager/sheet/:id_sheet/import', uploadCsv.single('csvfile'), async (
         res.redirect(`/manager/sheet/${id_sheet}/read`);
     } catch (err) {
         console.error('Error importing CSV:', err.message);
-        fs.unlinkSync(filePath); // エラーが発生した場合も一時ファイルを削除
+        fs.unlinkSync(filePath); // エラー時も一時ファイルを削除
         res.render('result', {
             title: 'エラー',
-            message: `CSVのインポートに失敗しました。詳細: ${err.message}`,
+            message: 'CSVのインポートに失敗しました。',
             backLink: `/manager/sheet/${id_sheet}/import`
         });
     }
@@ -1069,16 +1049,17 @@ app.get('/manager/sheet/:id_sheet/export', async (req, res) => {
         const documents = await Sheet.find().lean();
 
         // CSV生成
-        let csvContent = '項番,項目,内容,詳細,画像\n'; // 画像フィールドを追加
+        let csvContent = '項番,項目,内容,詳細,画像\n';
         documents.forEach(doc => {
-            csvContent += `"${doc.項番}","${doc.項目}","${doc.内容}","${doc.詳細}","${doc.画像}"\n`;
+            const imageList = (doc.画像 || []).filter(img => img.trim() !== '').join(','); // 空文字を除外して結合
+            csvContent += `"${doc.項番}","${doc.項目}","${doc.内容}","${doc.詳細}","${imageList}"\n`;
         });
 
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename=${id_sheet}.csv`);
         res.send(csvContent);
     } catch (err) {
-        console.error('Error exporting CSV:', err);
+        console.error('Error exporting CSV:', err.message);
         res.render('result', {
             title: 'エラー',
             message: 'CSVのエクスポートに失敗しました。',
@@ -1086,7 +1067,6 @@ app.get('/manager/sheet/:id_sheet/export', async (req, res) => {
         });
     }
 });
-
 
 // チェックシート全削除
 //───────────────────────────────────

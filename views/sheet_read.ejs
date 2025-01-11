@@ -29,13 +29,17 @@
 							<%- doc['詳細'].replace(/\r\n|\n/g, '<br>') %>
                         </td>
                     </tr>
-                    <% if (doc['画像']) { %>
-                        <tr>
-                            <td colspan="2" style="border-color: #000; text-align: center;">
-                                <img src="/<%= doc['画像'] %>" alt="画像" style="max-width: 100%; height: auto;">
-                            </td>
-                        </tr>
-                    <% } %>
+					<% if (doc['画像'] && Array.isArray(doc['画像']) && doc['画像'].length > 0) { %>
+						<tr>
+							<td colspan="2" style="border-color: #000; text-align: center;">
+								<% doc['画像'].forEach(img => { %>
+									<% if (img && img.trim() !== '') { %> <!-- 空文字を除外 -->
+										<img src="/<%= img %>" alt="画像" style="max-width: 100px; height: auto; margin-right: 10px;">
+									<% } %>
+								<% }) %>
+							</td>
+						</tr>
+					<% } %>
                 <% }) %>
             </table>
         </div>
