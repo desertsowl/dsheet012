@@ -116,6 +116,8 @@
 
         <!-- ボタン -->
         <div class="d-flex gap-2 mt-4">
+		<!-- キャンセルボタン -->
+		<a href="/manager/sheet/<%= id_sheet %>/read" class="btn btn-secondary">キャンセル</a>
             <% if (document) { %>
                 <!-- 削除ボタン -->
                 <button type="submit" name="action" value="delete" class="btn btn-danger">削除</button>
