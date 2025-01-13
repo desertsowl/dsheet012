@@ -18,7 +18,8 @@ const cookieParser = require('cookie-parser'); // Cookieパーサーを追加
 const crypto = require('crypto'); // セッションID生成用
 const multer = require('multer');
 const csvParser = require('csv-parser');
-const { Jimp } = require("jimp");
+const { Jimp }= require("jimp");  // 追加
+const managerRouter = require('./routes/manager');  // この行を追加
 
 require('dotenv').config();
 if (!process.env.SECRET_KEY) {
@@ -29,15 +30,33 @@ if (!process.env.SECRET_KEY) {
 // Multerのストレージ設定
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'public/img/'); // 画像の保存先ディレクトリ
+        cb(null, 'public/img/');
     },
-    filename: (req, file, cb) => {
-        const fileExtension = path.extname(file.originalname); // 拡張子を取得
-        const uniqueName = `${Date.now()}${fileExtension}`; // 一意の名前を生成
-        cb(null, uniqueName); // ファイル名を設定
+    filename: async (req, file, cb) => {
+        const fileExtension = path.extname(file.originalname);
+        const uniqueName = `${Date.now()}${fileExtension}`;
+        cb(null, uniqueName);
+
+        // ファイル保存後に画像処理を実行
+        const filePath = path.join('public/img/', uniqueName);
+        try {
+            const image = await Jimp.read(filePath);
+            const pixelCount = image.bitmap.width * image.bitmap.height;
+
+            if (pixelCount > 100000) {
+                const scaleFactor = Math.sqrt(100000 / pixelCount);
+                const newWidth = Math.floor(image.bitmap.width * scaleFactor);
+                const newHeight = Math.floor(image.bitmap.height * scaleFactor);
+                await image
+                    .resize(newWidth, newHeight)
+                    .writeAsync(filePath);
+                console.log('画像をリサイズしました:', uniqueName);
+            }
+        } catch (err) {
+            console.error('画像処理エラー:', err);
+        }
     }
 });
-
 // ファイルアップロード設定
 // Multerインスタンスを更新,最大5枚の画像を許可
 const uploadImg = multer({ storage }).array('item_image', 5);
@@ -768,6 +787,13 @@ app.post('/manager/sheet/:id_sheet/save_or_delete', uploadImg, async (req, res) 
         if (action === 'save') {
             const itemNumber = parseInt(item_number, 10);
 
+			// 項番の重複チェック
+			const duplicateDocument = await Sheet.findOne({ 項番: itemNumber, _id: { $ne: id } });
+			if (duplicateDocument) {
+				// 重複が発生した場合、以降の項番をシフト
+				await shiftItemNumbers(Sheet, itemNumber);
+			}
+
             if (id) {
                 // 更新処理
                 const document = await Sheet.findById(id);
@@ -909,41 +935,35 @@ app.post('/manager/sheet/:id_sheet/renumber', async (req, res) => {
 
 // チェックシート画像削除
 //───────────────────────────────────
-app.get('/manager/sheet/:id_sheet/delete_image', async (req, res) => {
-    const { id_sheet } = req.params;
-    const { id } = req.query;
-
+app.get('/manager/sheet/:id_sheet/delete_image/:index', async (req, res) => {
     try {
+        const { id_sheet } = req.params;
+        const docId = req.query.id;
+        const imageIndex = parseInt(req.params.index);
+        
+        // SheetModelを正しく初期化
         const database = mongoose.connection.useDb('sheet');
         const SheetModel = require('./models/Sheet');
-        const Sheet = SheetModel(database.name, id_sheet);
-
-        const document = await Sheet.findById(id);
-
-        if (!document) {
-            throw new Error('指定されたドキュメントが見つかりません。');
-        }
-
-        // ファイルを削除
-        if (document.画像) {
-            const filePath = `public/${document.画像}`;
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath); // ファイルを物理的に削除
+        const Sheet = SheetModel('sheet', id_sheet);
+        
+        const doc = await Sheet.findById(docId);
+        
+        if (doc && doc.画像) {
+            const imagePath = doc.画像[imageIndex];
+            doc.画像.splice(imageIndex, 1);
+            await doc.save();
+            
+            if (imagePath) {
+                fs.unlink(path.join('public', imagePath), (err) => {
+                    if (err) console.error('画像ファイルの削除に失敗しました:', err);
+                });
             }
         }
-
-        // ドキュメントの画像フィールドをクリア
-        document.画像 = '';
-        await document.save();
-
-        res.redirect(`/manager/sheet/${id_sheet}/edit?id=${id}`);
-    } catch (err) {
-        console.error('Error deleting image:', err.message);
-        res.render('result', {
-            title: 'エラー',
-            message: '画像削除中にエラーが発生しました。',
-            backLink: `/manager/sheet/${id_sheet}/edit?id=${id}`
-        });
+        
+        res.redirect(`/manager/sheet/${id_sheet}/edit?id=${docId}`);
+    } catch (error) {
+        console.error('画像の削除中にエラーが発生しました:', error);
+        res.status(500).send('エラーが発生しました');
     }
 });
 
